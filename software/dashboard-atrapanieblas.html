@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Atrapanieblas C.E.A.</title>
+  <link rel="preconnect" href="https://api.fontshare.com" />
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet" />
+  <style>
+    :root, [data-theme="light"] {
+      --text-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
+      --text-sm: clamp(0.875rem, 0.8rem + 0.35vw, 1rem);
+      --text-base: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+      --text-lg: clamp(1.125rem, 1rem + 0.75vw, 1.4rem);
+      --text-xl: clamp(1.4rem, 1.2rem + 1vw, 2rem);
+      --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem; --space-4: 1rem;
+      --space-5: 1.25rem; --space-6: 1.5rem; --space-8: 2rem; --space-10: 2.5rem;
+      --space-12: 3rem; --space-16: 4rem;
+      --color-bg: #f7f6f2;
+      --color-surface: #f9f8f5;
+      --color-surface-2: #fbfbf9;
+      --color-surface-offset: #edeae5;
+      --color-border: #d4d1ca;
+      --color-text: #28251d;
+      --color-text-muted: #6d6b66;
+      --color-text-faint: #a9a59d;
+      --color-text-inverse: #f9f8f4;
+      --color-primary: #01696f;
+      --color-primary-hover: #0c4e54;
+      --color-success: #437a22;
+      --color-warning: #964219;
+      --color-error: #a12c7b;
+      --color-blue: #006494;
+      --radius-sm: .5rem; --radius-md: .85rem; --radius-lg: 1.1rem; --radius-xl: 1.4rem; --radius-full: 999px;
+      --shadow-sm: 0 1px 2px rgba(30,25,20,.06);
+      --shadow-md: 0 10px 28px rgba(30,25,20,.08);
+      --shadow-lg: 0 24px 48px rgba(30,25,20,.12);
+      --transition: 180ms cubic-bezier(.16,1,.3,1);
+      --sidebar-w: 280px;
+      --font-body: 'Satoshi', system-ui, sans-serif;
+      --font-display: 'Satoshi', system-ui, sans-serif;
+    }
+    [data-theme="dark"] {
+      --color-bg: #171614;
+      --color-surface: #1c1b19;
+      --color-surface-2: #201f1d;
+      --color-surface-offset: #2a2825;
+      --color-border: #393836;
+      --color-text: #e5e1d8;
+      --color-text-muted: #a19d95;
+      --color-text-faint: #6f6b64;
+      --color-text-inverse: #171614;
+      --color-primary: #4f98a3;
+      --color-primary-hover: #6baeb8;
+      --color-success: #78b553;
+      --color-warning: #cf7b50;
+      --color-error: #d163a7;
+      --color-blue: #6aa9d8;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,.24);
+      --shadow-md: 0 10px 28px rgba(0,0,0,.28);
+      --shadow-lg: 0 24px 48px rgba(0,0,0,.42);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: var(--font-body);
+      font-size: var(--text-base);
+      background:
+        radial-gradient(circle at top right, rgba(1,105,111,.08), transparent 22%),
+        radial-gradient(circle at bottom left, rgba(0,100,148,.05), transparent 18%),
+        var(--color-bg);
+      color: var(--color-text);
+      line-height: 1.5;
+    }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; border: 0; background: none; color: inherit; }
+    .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+    .dashboard {
+      height: 100dvh;
+      display: grid;
+      grid-template-columns: var(--sidebar-w) 1fr;
+      grid-template-rows: auto 1fr;
+    }
+    .sidebar {
+      grid-row: 1 / -1;
+      background: color-mix(in oklab, var(--color-surface) 82%, var(--color-primary) 18%);
+      border-right: 1px solid var(--color-border);
+      padding: var(--space-6);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-6);
+      overflow-y: auto;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding-bottom: var(--space-4);
+      border-bottom: 1px solid color-mix(in oklab, var(--color-border) 75%, transparent);
+    }
+    .brand-mark {
+      width: 42px; height: 42px; border-radius: 14px;
+      display: grid; place-items: center;
+      background: linear-gradient(135deg, var(--color-primary), var(--color-blue));
+      color: white;
+      box-shadow: var(--shadow-md);
+      flex-shrink: 0;
+    }
+    .brand h1 { font-size: var(--text-lg); font-weight: 900; line-height: 1.1; }
+    .brand p { font-size: var(--text-xs); color: var(--color-text-muted); }
+    .nav-group { display: grid; gap: var(--space-2); }
+    .nav-label {
+      font-size: var(--text-xs);
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      margin-bottom: var(--space-2);
+    }
+    .nav-btn {
+      width: 100%; text-align: left; padding: .9rem 1rem; border-radius: var(--radius-lg);
+      display: flex; align-items: center; gap: .9rem;
+      color: var(--color-text-muted);
+      transition: background var(--transition), color var(--transition), transform var(--transition);
+    }
+    .nav-btn:hover, .nav-btn.active {
+      background: color-mix(in oklab, var(--color-primary) 12%, var(--color-surface-2));
+      color: var(--color-text);
+      transform: translateX(2px);
+    }
+    .nav-dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; opacity: .7; }
+    .sidebar-card {
+      margin-top: auto;
+      background: var(--color-surface-2);
+      border: 1px solid color-mix(in oklab, var(--color-border) 88%, transparent);
+      border-radius: var(--radius-xl);
+      padding: var(--space-5);
+      box-shadow: var(--shadow-sm);
+      display: grid; gap: var(--space-3);
+    }
+    .sidebar-card h3 { font-size: var(--text-sm); }
+    .sidebar-card p { font-size: var(--text-xs); color: var(--color-text-muted); }
+    .header {
+      grid-column: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+      padding: var(--space-5) var(--space-6);
+      border-bottom: 1px solid var(--color-border);
+      background: color-mix(in oklab, var(--color-bg) 82%, transparent);
+      backdrop-filter: blur(14px);
+      position: sticky; top: 0; z-index: 20;
+    }
+    .header-title h2 { font-size: var(--text-xl); font-weight: 900; }
+    .header-title p { font-size: var(--text-sm); color: var(--color-text-muted); }
+    .header-actions { display: flex; align-items: center; gap: var(--space-3); }
+    .pill, .ghost-btn, .theme-toggle {
+      border-radius: var(--radius-full);
+      border: 1px solid var(--color-border);
+      background: var(--color-surface);
+      padding: .7rem 1rem;
+      color: var(--color-text);
+      box-shadow: var(--shadow-sm);
+    }
+    .theme-toggle { width: 46px; height: 46px; display: grid; place-items: center; padding: 0; }
+    .main {
+      grid-column: 2;
+      overflow-y: auto;
+      padding: var(--space-6);
+      display: grid;
+      gap: var(--space-6);
+      align-content: start;
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: 1.35fr .95fr;
+      gap: var(--space-6);
+    }
+    .hero-card, .panel, .kpi, .chart-card, .scenario-card, .timeline-card, .table-card {
+      background: linear-gradient(180deg, color-mix(in oklab, var(--color-surface-2) 92%, white 8%), var(--color-surface));
+      border: 1px solid color-mix(in oklab, var(--color-border) 88%, transparent);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-md);
+    }
+    .hero-card {
+      padding: var(--space-6);
+      position: relative;
+      overflow: hidden;
+      display: grid;
+      gap: var(--space-5);
+      min-height: 280px;
+    }
+    .hero-card::after {
+      content: "";
+      position: absolute; inset: auto -10% -25% auto;
+      width: 280px; height: 280px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(1,105,111,.22), transparent 68%);
+      pointer-events: none;
+    }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: .55rem;
+      width: fit-content; font-size: var(--text-xs);
+      padding: .45rem .8rem; border-radius: var(--radius-full);
+      background: color-mix(in oklab, var(--color-primary) 12%, var(--color-surface-2));
+      color: var(--color-primary);
+      border: 1px solid color-mix(in oklab, var(--color-primary) 20%, var(--color-border));
+    }
+    .hero-card h3 { font-size: clamp(1.5rem, 1.1rem + 1.2vw, 2.2rem); line-height: 1.05; font-weight: 900; max-width: 14ch; }
+    .hero-card p { color: var(--color-text-muted); max-width: 62ch; }
+    .hero-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3);
+    }
+    .mini-stat {
+      padding: var(--space-4);
+      border-radius: var(--radius-lg);
+      background: color-mix(in oklab, var(--color-surface) 75%, var(--color-bg));
+      border: 1px solid color-mix(in oklab, var(--color-border) 88%, transparent);
+    }
+    .mini-stat span { display:block; font-size:var(--text-xs); color:var(--color-text-muted); margin-bottom:.25rem; }
+    .mini-stat strong { font-size:var(--text-lg); font-weight:900; font-variant-numeric: tabular-nums; }
+    .panel {
+      padding: var(--space-5);
+      display: grid;
+      gap: var(--space-4);
+      align-content: start;
+    }
+    .panel-head {
+      display:flex; align-items:flex-start; justify-content:space-between; gap: var(--space-4);
+    }
+    .panel-head h3 { font-size: var(--text-lg); font-weight: 800; }
+    .panel-head p { font-size: var(--text-xs); color: var(--color-text-muted); }
+    .signal-stack { display:grid; gap: var(--space-3); }
+    .signal-row {
+      display:flex; justify-content:space-between; align-items:center;
+      padding: .95rem 1rem; border-radius: var(--radius-lg);
+      background: color-mix(in oklab, var(--color-surface-offset) 65%, transparent);
+      border: 1px solid color-mix(in oklab, var(--color-border) 82%, transparent);
+    }
+    .signal-row small { color: var(--color-text-muted); display:block; font-size: var(--text-xs); }
+    .signal-badge {
+      padding: .35rem .7rem; border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: 700;
+    }
+    .ok { background: color-mix(in oklab, var(--color-success) 16%, var(--color-surface)); color: var(--color-success); }
+    .warn { background: color-mix(in oklab, var(--color-warning) 16%, var(--color-surface)); color: var(--color-warning); }
+    .info { background: color-mix(in oklab, var(--color-blue) 14%, var(--color-surface)); color: var(--color-blue); }
+    .grid-kpis {
+      display:grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4);
+    }
+    .kpi { padding: var(--space-5); display:grid; gap: var(--space-3); }
+    .kpi-top { display:flex; justify-content:space-between; align-items:center; }
+    .kpi-label { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .1em; color: var(--color-text-muted); }
+    .kpi-value { font-size: clamp(1.6rem, 1.2rem + 1vw, 2.3rem); font-weight: 900; font-variant-numeric: tabular-nums; }
+    .kpi-meta { display:flex; gap: .5rem; align-items:center; flex-wrap:wrap; font-size: var(--text-xs); color: var(--color-text-muted); }
+    .trend-up { color: var(--color-success); }
+    .trend-flat { color: var(--color-blue); }
+    .trend-risk { color: var(--color-warning); }
+    .section-grid { display:grid; grid-template-columns: 1.2fr .8fr; gap: var(--space-6); }
+    .chart-card, .timeline-card, .table-card { padding: var(--space-5); }
+    .chart-head, .table-head {
+      display:flex; justify-content:space-between; align-items:flex-start; gap:var(--space-4); margin-bottom: var(--space-4);
+    }
+    .chart-head h3, .table-head h3 { font-size: var(--text-lg); font-weight: 800; }
+    .chart-svg { width: 100%; height: 260px; }
+    .legend { display:flex; gap:1rem; flex-wrap:wrap; margin-top: .5rem; font-size: var(--text-xs); color: var(--color-text-muted); }
+    .legend span { display:inline-flex; align-items:center; gap:.45rem; }
+    .legend i { width:10px; height:10px; border-radius:50%; display:inline-block; }
+    .scenario-list { display:grid; gap: var(--space-4); }
+    .scenario-card {
+      padding: var(--space-4);
+      display:grid; gap: var(--space-3);
+      position: relative;
+      overflow:hidden;
+    }
+    .scenario-card::before {
+      content:""; position:absolute; inset:0 auto 0 0; width:4px; background: var(--accent, var(--color-primary));
+    }
+    .scenario-card h4 { font-size: var(--text-base); font-weight: 800; }
+    .scenario-card p { font-size: var(--text-sm); color: var(--color-text-muted); }
+    .scenario-card[data-tone="safe"] { --accent: var(--color-success); }
+    .scenario-card[data-tone="watch"] { --accent: var(--color-warning); }
+    .scenario-card[data-tone="risk"] { --accent: var(--color-error); }
+    .meter {
+      height: 10px; border-radius: var(--radius-full); background: color-mix(in oklab, var(--color-surface-offset) 80%, transparent); overflow: hidden;
+    }
+    .meter > span { display:block; height:100%; border-radius:inherit; background: linear-gradient(90deg, var(--accent, var(--color-primary)), color-mix(in oklab, var(--accent, var(--color-primary)) 65%, white)); }
+    .timeline { display:grid; gap: var(--space-4); }
+    .event {
+      display:grid; grid-template-columns: auto 1fr; gap: var(--space-3);
+      align-items:start;
+    }
+    .event-mark {
+      width: 14px; height: 14px; border-radius: 50%; margin-top: .35rem;
+      background: var(--color-primary); box-shadow: 0 0 0 6px color-mix(in oklab, var(--color-primary) 14%, transparent);
+    }
+    .event h4 { font-size: var(--text-sm); font-weight: 800; }
+    .event p { font-size: var(--text-xs); color: var(--color-text-muted); }
+    .event time { font-size: var(--text-xs); color: var(--color-text-faint); }
+    table { width:100%; border-collapse: collapse; }
+    th, td {
+      text-align:left; padding: .95rem .6rem; border-bottom: 1px solid color-mix(in oklab, var(--color-border) 82%, transparent);
+      font-size: var(--text-sm);
+    }
+    th { color: var(--color-text-muted); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .08em; }
+    td strong { font-variant-numeric: tabular-nums; }
+    .status-dot {
+      display:inline-flex; align-items:center; gap:.45rem;
+    }
+    .status-dot::before { content:""; width:8px; height:8px; border-radius:50%; background: currentColor; }
+    .controls {
+      display:grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4);
+    }
+    .control-card {
+      background: var(--color-surface);
+      border: 1px solid color-mix(in oklab, var(--color-border) 88%, transparent);
+      border-radius: var(--radius-xl);
+      padding: var(--space-5);
+      box-shadow: var(--shadow-sm);
+      display:grid; gap: var(--space-4);
+    }
+    .control-card label { font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .08em; }
+    .control-card input, .control-card select {
+      width:100%; background: var(--color-surface-2); color: var(--color-text);
+      border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: .9rem 1rem;
+    }
+    .btn-primary {
+      background: var(--color-primary); color: white; padding: .9rem 1rem; border-radius: var(--radius-lg);
+      font-size: var(--text-sm); font-weight: 700;
+      box-shadow: var(--shadow-sm);
+    }
+    .btn-primary:hover { background: var(--color-primary-hover); }
+    .mobile-topbar { display:none; }
+    @media (max-width: 1100px) {
+      .grid-kpis { grid-template-columns: repeat(2, 1fr); }
+      .hero, .section-grid, .controls { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 820px) {
+      html, body { overflow: auto; }
+      .dashboard {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto 1fr;
+        height: auto;
+        min-height: 100dvh;
+      }
+      .mobile-topbar {
+        display:flex; align-items:center; justify-content:space-between;
+        padding: var(--space-4);
+        border-bottom: 1px solid var(--color-border);
+        background: color-mix(in oklab, var(--color-bg) 90%, transparent);
+        position: sticky; top: 0; z-index: 30; backdrop-filter: blur(14px);
+      }
+      .sidebar {
+        grid-row: auto; grid-column: 1;
+        position: fixed; inset: 64px auto 0 0; width: min(88vw, 320px); z-index: 40;
+        transform: translateX(-105%);
+        transition: transform var(--transition);
+        box-shadow: var(--shadow-lg);
+      }
+      .sidebar.open { transform: translateX(0); }
+      .header { display:none; }
+      .main { grid-column: 1; padding: var(--space-4); overflow: visible; }
+      .hero-grid, .grid-kpis { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="mobile-topbar">
+    <button class="ghost-btn" id="menuToggle" aria-label="Abrir menú">☰</button>
+    <strong>Dashboard C.E.A.</strong>
+    <button class="theme-toggle" data-theme-toggle aria-label="Cambiar tema">
+      <span aria-hidden="true">◐</span>
+    </button>
+  </div>
+  <div class="dashboard">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-label="Logo Atrapanieblas">
+            <path d="M4 8c2.5-3 5-4.5 8-4.5S17.5 5 20 8" />
+            <path d="M6.5 10.5c1.8 1.7 3.7 2.5 5.5 2.5s3.7-.8 5.5-2.5" />
+            <path d="M12 13v7" />
+            <path d="M9 17.5 12 20l3-2.5" />
+          </svg>
+        </div>
+        <div>
+          <h1>Atrapanieblas<br/>Titicachi</h1>
+          <p>Mockup del dashboard académico</p>
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Navegación</div>
+        <button class="nav-btn active"><span class="nav-dot"></span>Resumen general</button>
+        <button class="nav-btn"><span class="nav-dot"></span>ML1 · Predicción</button>
+        <button class="nav-btn"><span class="nav-dot"></span>ML2 · Riego</button>
+        <button class="nav-btn"><span class="nav-dot"></span>ML3 · Escenarios</button>
+        <button class="nav-btn"><span class="nav-dot"></span>Sensores IoT</button>
+        <button class="nav-btn"><span class="nav-dot"></span>Reportes</button>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Estado MCP</div>
+        <button class="nav-btn"><span class="nav-dot"></span>Nodo local activo</button>
+        <button class="nav-btn"><span class="nav-dot"></span>Sin backend externo</button>
+      </div>
+
+      <div class="sidebar-card">
+        <h3>Prototipo de tesis</h3>
+        <p>Este mockup simula el panel para captación de niebla, control de riego y consulta de escenarios a 72 horas.</p>
+        <button class="btn-primary">Exportar vista</button>
+      </div>
+    </aside>
+
+    <header class="header">
+      <div class="header-title">
+        <h2>Dashboard del sistema inteligente</h2>
+        <p>C.E.A. Cetha Ildefonso de las Muñecas · Titicachi · Prototipo visual sin conexión backend</p>
+      </div>
+      <div class="header-actions">
+        <div class="pill">Última actualización · 17:45</div>
+        <button class="ghost-btn">Modo aula</button>
+        <button class="theme-toggle" data-theme-toggle aria-label="Cambiar tema">
+          <span aria-hidden="true">◐</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="hero">
+        <article class="hero-card">
+          <div class="eyebrow">Sistema local MCP · 3 modelos ML</div>
+          <div>
+            <h3>Planificar el agua antes de que falte</h3>
+            <p>El panel centraliza la captación por atrapanieblas, la lectura de sensores, la predicción de agua disponible, el control de riego y las consultas de riesgo para los próximos tres días.</p>
+          </div>
+          <div class="hero-grid">
+            <div class="mini-stat">
+              <span>Predicción mañana</span>
+              <strong>38 L</strong>
+            </div>
+            <div class="mini-stat">
+              <span>Riego sugerido</span>
+              <strong>Moderado</strong>
+            </div>
+            <div class="mini-stat">
+              <span>Riesgo 72h</span>
+              <strong>Bajo</strong>
+            </div>
+          </div>
+        </article>
+
+        <aside class="panel">
+          <div class="panel-head">
+            <div>
+              <h3>Señales en tiempo real</h3>
+              <p>Lecturas referenciales del prototipo</p>
+            </div>
+            <span class="signal-badge info">En línea local</span>
+          </div>
+          <div class="signal-stack">
+            <div class="signal-row">
+              <div>
+                <strong>Temperatura</strong>
+                <small>BME680</small>
+              </div>
+              <strong>11.8 °C</strong>
+            </div>
+            <div class="signal-row">
+              <div>
+                <strong>Presión atmosférica</strong>
+                <small>Estación meteorológica</small>
+              </div>
+              <strong>639 hPa</strong>
+            </div>
+            <div class="signal-row">
+              <div>
+                <strong>Caudal captado</strong>
+                <small>Atrapanieblas</small>
+              </div>
+              <strong>4.2 L/h</strong>
+            </div>
+            <div class="signal-row">
+              <div>
+                <strong>Estado del riego</strong>
+                <small>ML2 · ESP32</small>
+              </div>
+              <span class="signal-badge ok">Programado</span>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <section class="grid-kpis">
+        <article class="kpi">
+          <div class="kpi-top"><span class="kpi-label">ML1 · Agua estimada</span><span class="signal-badge info">24h</span></div>
+          <div class="kpi-value">38 L</div>
+          <div class="kpi-meta"><span class="trend-up">↑ Niebla favorable</span><span>Comparado con ayer</span></div>
+        </article>
+        <article class="kpi">
+          <div class="kpi-top"><span class="kpi-label">ML2 · Riego óptimo</span><span class="signal-badge ok">Activo</span></div>
+          <div class="kpi-value">2 ciclos</div>
+          <div class="kpi-meta"><span class="trend-flat">Automático</span><span>Prioriza uso eficiente</span></div>
+        </article>
+        <article class="kpi">
+          <div class="kpi-top"><span class="kpi-label">ML3 · Consulta 72h</span><span class="signal-badge warn">Vigilancia</span></div>
+          <div class="kpi-value">1 alerta</div>
+          <div class="kpi-meta"><span class="trend-risk">Si no se riega el bloque B</span><span>Se eleva el estrés hídrico</span></div>
+        </article>
+        <article class="kpi">
+          <div class="kpi-top"><span class="kpi-label">Interoperabilidad MCP</span><span class="signal-badge info">Local</span></div>
+          <div class="kpi-value">3 nodos</div>
+          <div class="kpi-meta"><span class="trend-flat">ML1 · ML2 · ML3</span><span>Sin dependencia externa</span></div>
+        </article>
+      </section>
+
+      <section class="section-grid">
+        <article class="chart-card">
+          <div class="chart-head">
+            <div>
+              <h3>Captación y pronóstico</h3>
+              <p>Comparación visual entre agua recolectada y predicción diaria</p>
+            </div>
+            <div class="pill">Semana simulada</div>
+          </div>
+          <svg class="chart-svg" viewBox="0 0 760 260" role="img" aria-label="Gráfico de captación y predicción">
+            <defs>
+              <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="rgba(1,105,111,.28)" />
+                <stop offset="100%" stop-color="rgba(1,105,111,0)" />
+              </linearGradient>
+            </defs>
+            <g stroke="currentColor" opacity="0.08">
+              <line x1="50" y1="30" x2="50" y2="220" />
+              <line x1="50" y1="220" x2="720" y2="220" />
+              <line x1="50" y1="170" x2="720" y2="170" />
+              <line x1="50" y1="120" x2="720" y2="120" />
+              <line x1="50" y1="70" x2="720" y2="70" />
+            </g>
+            <path d="M50 180 C120 160, 150 110, 220 118 S340 105, 390 124 S510 86, 560 100 S660 80, 720 92 L720 220 L50 220 Z" fill="url(#areaFill)"></path>
+            <path d="M50 180 C120 160, 150 110, 220 118 S340 105, 390 124 S510 86, 560 100 S660 80, 720 92" fill="none" stroke="#01696f" stroke-width="4" stroke-linecap="round"></path>
+            <path d="M50 192 C120 170, 150 130, 220 138 S340 118, 390 136 S510 105, 560 116 S660 94, 720 108" fill="none" stroke="#006494" stroke-width="3" stroke-dasharray="8 8" stroke-linecap="round"></path>
+            <g fill="currentColor" opacity="0.58" font-size="12" font-family="Satoshi, sans-serif">
+              <text x="45" y="235">Lun</text>
+              <text x="155" y="235">Mar</text>
+              <text x="265" y="235">Mié</text>
+              <text x="375" y="235">Jue</text>
+              <text x="485" y="235">Vie</text>
+              <text x="595" y="235">Sáb</text>
+              <text x="690" y="235">Dom</text>
+            </g>
+          </svg>
+          <div class="legend">
+            <span><i style="background:#01696f"></i>Agua captada</span>
+            <span><i style="background:#006494"></i>Predicción ML1</span>
+          </div>
+        </article>
+
+        <aside class="timeline-card">
+          <div class="chart-head">
+            <div>
+              <h3>Bitácora inteligente</h3>
+              <p>Eventos relevantes del sistema</p>
+            </div>
+          </div>
+          <div class="timeline">
+            <div class="event">
+              <span class="event-mark"></span>
+              <div>
+                <h4>ML1 recalculó la predicción</h4>
+                <p>Se detectó mayor humedad ambiente en el bloque de captación.</p>
+                <time>Hace 12 min</time>
+              </div>
+            </div>
+            <div class="event">
+              <span class="event-mark" style="background:var(--color-success); box-shadow:0 0 0 6px color-mix(in oklab, var(--color-success) 14%, transparent)"></span>
+              <div>
+                <h4>ML2 programó riego corto</h4>
+                <p>Se priorizó el invernadero A por menor reserva disponible.</p>
+                <time>Hace 28 min</time>
+              </div>
+            </div>
+            <div class="event">
+              <span class="event-mark" style="background:var(--color-warning); box-shadow:0 0 0 6px color-mix(in oklab, var(--color-warning) 14%, transparent)"></span>
+              <div>
+                <h4>ML3 elevó observación preventiva</h4>
+                <p>Sin riego en 72h, el bloque B ingresaría a condición crítica.</p>
+                <time>Hace 1 h</time>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <section class="section-grid">
+        <article class="table-card">
+          <div class="table-head">
+            <div>
+              <h3>Estado de módulos</h3>
+              <p>Resumen del prototipo por componente</p>
+            </div>
+            <div class="pill">Vista de jurado</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Módulo</th>
+                <th>Función</th>
+                <th>Estado</th>
+                <th>Observación</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>ML1</strong></td>
+                <td>Predicción de captación</td>
+                <td style="color:var(--color-success)"><span class="status-dot">Operativo</span></td>
+                <td>Proyecta agua para el siguiente día</td>
+              </tr>
+              <tr>
+                <td><strong>ML2</strong></td>
+                <td>Optimización de riego</td>
+                <td style="color:var(--color-success)"><span class="status-dot">Operativo</span></td>
+                <td>Trabaja en ESP32 de manera local</td>
+              </tr>
+              <tr>
+                <td><strong>ML3</strong></td>
+                <td>Consulta de escenarios</td>
+                <td style="color:var(--color-warning)"><span class="status-dot">Preventivo</span></td>
+                <td>Evalúa “qué pasaría si no se riega”</td>
+              </tr>
+              <tr>
+                <td><strong>MCP</strong></td>
+                <td>Interoperabilidad</td>
+                <td style="color:var(--color-blue)"><span class="status-dot">Sincronizado</span></td>
+                <td>Conecta sensores, modelos y dashboard</td>
+              </tr>
+            </tbody>
+          </table>
+        </article>
+
+        <aside class="panel">
+          <div class="panel-head">
+            <div>
+              <h3>Escenarios de consulta</h3>
+              <p>Mockup del tercer modelo de machine learning</p>
+            </div>
+            <span class="signal-badge warn">72 horas</span>
+          </div>
+          <div class="scenario-list">
+            <article class="scenario-card" data-tone="safe">
+              <h4>Riego normal</h4>
+              <p>Los invernaderos mantienen estabilidad y no se anticipan pérdidas relevantes.</p>
+              <div class="meter"><span style="width: 22%"></span></div>
+            </article>
+            <article class="scenario-card" data-tone="watch">
+              <h4>Riego restringido</h4>
+              <p>El bloque B requerirá intervención si la captación disminuye durante dos jornadas.</p>
+              <div class="meter"><span style="width: 58%"></span></div>
+            </article>
+            <article class="scenario-card" data-tone="risk">
+              <h4>Sin riego por 3 días</h4>
+              <p>Se proyecta estrés hídrico alto y prioridad de atención inmediata.</p>
+              <div class="meter"><span style="width: 86%"></span></div>
+            </article>
+          </div>
+        </aside>
+      </section>
+
+      <section class="controls">
+        <article class="control-card">
+          <div>
+            <label>Consulta pedagógica</label>
+            <select>
+              <option>¿Qué pasa si no se riega 3 días?</option>
+              <option>¿Qué pasa si baja la captación?</option>
+              <option>¿Qué pasa si se prioriza el invernadero A?</option>
+            </select>
+          </div>
+          <p style="font-size:var(--text-sm); color:var(--color-text-muted)">Diseñado para docentes y estudiantes como apoyo a decisiones en aula y práctica productiva.</p>
+          <button class="btn-primary">Simular escenario</button>
+        </article>
+        <article class="control-card">
+          <div>
+            <label>Umbral mínimo de reserva</label>
+            <input type="text" value="15 litros" />
+          </div>
+          <p style="font-size:var(--text-sm); color:var(--color-text-muted)">Parámetro visible para el operador local. En producción podría ser ajustado desde el dashboard.</p>
+          <button class="btn-primary">Guardar criterio</button>
+        </article>
+        <article class="control-card">
+          <div>
+            <label>Modo del sistema</label>
+            <select>
+              <option>Automático</option>
+              <option>Supervisado</option>
+              <option>Manual</option>
+            </select>
+          </div>
+          <p style="font-size:var(--text-sm); color:var(--color-text-muted)">Vista conceptual para mostrar control humano sobre los modelos de machine learning.</p>
+          <button class="btn-primary">Aplicar modo</button>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    (() => {
+      const root = document.documentElement;
+      const toggles = document.querySelectorAll('[data-theme-toggle]');
+      let current = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      root.setAttribute('data-theme', current);
+      const applyToggleText = () => {
+        toggles.forEach(btn => btn.setAttribute('aria-label', current === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'));
+      };
+      applyToggleText();
+      toggles.forEach(btn => btn.addEventListener('click', () => {
+        current = current === 'dark' ? 'light' : 'dark';
+        root.setAttribute('data-theme', current);
+        applyToggleText();
+      }));
+
+      const sidebar = document.getElementById('sidebar');
+      const menuToggle = document.getElementById('menuToggle');
+      if (menuToggle) {
+        menuToggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+      }
+
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
