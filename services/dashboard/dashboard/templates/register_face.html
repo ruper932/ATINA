@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Registrar rostro</title>
+</head>
+<body>
+    <h1>Registrar rostro</h1>
+    <p>Usuario: {{ user.username }}</p>
+
+    <video id="video" width="640" height="480" autoplay></video>
+    <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
+
+    <form id="face-form" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="image_data" id="image_data">
+        <button type="submit">Registrar rostro</button>
+    </form>
+
+    <div id="status"></div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const imageDataInput = document.getElementById('image_data');
+        const form = document.getElementById('face-form');
+        const status = document.getElementById('status');
+
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+            })
+            .catch(error => {
+                status.innerHTML = '<p style="color:red;">No se pudo acceder a la cámara: ' + error + '</p>';
+            });
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            imageDataInput.value = canvas.toDataURL('image/jpeg');
+
+            const formData = new FormData(form);
+
+            fetch('', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                status.innerHTML = '<p>' + data.message + '</p>';
+            });
+        });
+    </script>
+</body>
+</html>

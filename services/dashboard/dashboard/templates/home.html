@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inicio</title>
+</head>
+<body>
+    {% load otp_webauthn %}
+
+    <h1>Sistema de monitoreo de atrapanieblas</h1>
+
+    {% if user.is_authenticated %}
+        <p>Bienvenido, {{ user.username }}.</p>
+
+        <ul>
+            <li><a href="/admin/">Ir al panel admin</a></li>
+            <li><a href="/accounts/logout/">Cerrar sesión</a></li>
+        </ul>
+
+        <h2>Registro de Face ID / Passkey</h2>
+
+        <button type="button" id="passkey-register-button">
+            Registrar Face ID / Passkey
+        </button>
+
+        <div id="passkey-register-status-message"></div>
+
+        {% render_otp_webauthn_register_scripts %}
+    {% else %}
+        <p>No has iniciado sesión.</p>
+        <p><a href="/accounts/login/">Iniciar sesión</a></p>
+    {% endif %}
+</body>
+</html>
