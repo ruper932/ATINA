@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de usuarios</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Inter, sans-serif;
+            background: #f4f1ec;
+            color: #2f2a24;
+        }
+        .page {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 32px 20px;
+        }
+        .card {
+            background: #fbfaf7;
+            border: 1px solid #ddd7cf;
+            border-radius: 20px;
+            padding: 28px;
+            box-shadow: 0 16px 40px rgba(43,36,30,0.08);
+        }
+        h1 {
+            margin-top: 0;
+        }
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            text-decoration: none;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .btn-primary {
+            background: #6f8f88;
+            color: white;
+        }
+        .btn-secondary {
+            background: transparent;
+            color: #2f2a24;
+            border: 1px solid #d8d2ca;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 18px;
+        }
+        th, td {
+            text-align: left;
+            padding: 14px 12px;
+            border-bottom: 1px solid #e6e1da;
+        }
+        th {
+            color: #7a746c;
+            font-size: 0.9rem;
+        }
+        .tag {
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 0.82rem;
+            display: inline-block;
+        }
+        .tag-yes {
+            background: #eaf2ef;
+            color: #45675f;
+        }
+        .tag-no {
+            background: #f1ece6;
+            color: #7a746c;
+        }
+        .delete-form {
+            margin: 0;
+        }
+        .delete-btn {
+            border: none;
+            background: #f3e8e5;
+            color: #8a4c3d;
+            padding: 10px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .messages {
+            margin-bottom: 18px;
+        }
+        .message {
+            padding: 12px 14px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+        }
+        .success {
+            background: #edf4f1;
+            color: #44675f;
+        }
+        .error {
+            background: #f7ebe8;
+            color: #8b4d3d;
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="card">
+            <div class="topbar">
+                <div>
+                    <h1>Gestión de usuarios</h1>
+                    <p>Administra los usuarios del sistema desde tu panel propio.</p>
+                </div>
+                <div>
+                    <a href="/biometric/admin-panel/users/create/" class="btn btn-primary">Nuevo usuario</a>
+                    <a href="/" class="btn btn-secondary">Volver al inicio</a>
+                </div>
+            </div>
+
+            {% if messages %}
+                <div class="messages">
+                    {% for message in messages %}
+                        <div class="message {% if message.tags == 'success' %}success{% else %}error{% endif %}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Usuario</th>
+                        <th>Email</th>
+                        <th>Staff</th>
+                        <th>Activo</th>
+                        <th>Fecha de registro</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr>
+                        <td>{{ u.id }}</td>
+                        <td>{{ u.username }}</td>
+                        <td>{{ u.email|default:"—" }}</td>
+                        <td>
+                            {% if u.is_staff %}
+                                <span class="tag tag-yes">Sí</span>
+                            {% else %}
+                                <span class="tag tag-no">No</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if u.is_active %}
+                                <span class="tag tag-yes">Activo</span>
+                            {% else %}
+                                <span class="tag tag-no">Inactivo</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ u.date_joined|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            <a href="/biometric/admin-panel/users/delete/{{ u.id }}/" class="btn btn-secondary">Eliminar</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7">No hay usuarios registrados.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

@@ -2,22 +2,463 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registrar rostro</title>
+    <style>
+        :root {
+            --bg: #f4f1ec;
+            --surface: rgba(251, 250, 247, 0.94);
+            --surface-2: #f7f3ee;
+            --border: #ddd7cf;
+            --text: #2f2a24;
+            --muted: #7a746c;
+            --primary: #6f8f88;
+            --primary-hover: #5e7b75;
+            --primary-soft: rgba(111, 143, 136, 0.12);
+            --info-bg: #f2efea;
+            --info-border: #ddd7cf;
+            --info-text: #686159;
+            --error-bg: #f7ebe8;
+            --error-border: #e5c8bf;
+            --error-text: #8b4d3d;
+            --success-bg: #edf4f1;
+            --success-border: #c8dbd4;
+            --success-text: #44675f;
+            --shadow: 0 18px 48px rgba(43, 36, 30, 0.10);
+            --radius-xl: 26px;
+            --radius-lg: 20px;
+            --radius-md: 14px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Inter", "Segoe UI", sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at top left, rgba(111, 143, 136, 0.10), transparent 30%),
+                radial-gradient(circle at bottom right, rgba(173, 184, 178, 0.15), transparent 30%),
+                linear-gradient(180deg, #f7f4ef 0%, #f0ece6 100%);
+            display: grid;
+            place-items: center;
+            padding: 24px;
+        }
+
+        .page {
+            width: 100%;
+            max-width: 1120px;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 1.05fr 0.95fr;
+            gap: 26px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .panel {
+            padding: 34px;
+        }
+
+        .panel-left {
+            background:
+                radial-gradient(circle at top right, rgba(111, 143, 136, 0.10), transparent 30%),
+                linear-gradient(180deg, rgba(255,255,255,0.72), rgba(248,245,240,0.95));
+            border-right: 1px solid rgba(221, 215, 207, 0.9);
+        }
+
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--muted);
+            margin-bottom: 12px;
+        }
+
+        .eyebrow::before {
+            content: "";
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: var(--primary);
+            box-shadow: 0 0 0 5px rgba(111, 143, 136, 0.10);
+        }
+
+        h1 {
+            margin: 0 0 12px 0;
+            font-size: 2rem;
+            line-height: 1.08;
+            font-weight: 680;
+            max-width: 14ch;
+        }
+
+        .subtitle {
+            margin: 0 0 22px 0;
+            color: var(--muted);
+            line-height: 1.65;
+            max-width: 58ch;
+        }
+
+        .user-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: 999px;
+            background: var(--primary-soft);
+            color: var(--primary-hover);
+            font-size: 0.92rem;
+            font-weight: 600;
+            margin-bottom: 22px;
+        }
+
+        .user-pill::before {
+            content: "";
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            background: #82a296;
+        }
+
+        .camera-shell {
+            border-radius: 22px;
+            padding: 14px;
+            background: linear-gradient(180deg, #f8f6f2 0%, #ede7df 100%);
+            border: 1px solid #d8d1c9;
+            box-shadow:
+                inset 0 1px 0 rgba(255,255,255,0.75),
+                0 16px 35px rgba(58, 48, 39, 0.08);
+        }
+
+        .camera-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .camera-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+
+        .camera-badge {
+            font-size: 0.82rem;
+            color: var(--muted);
+            border: 1px solid #ddd6cf;
+            background: rgba(255,255,255,0.55);
+            padding: 8px 12px;
+            border-radius: 999px;
+        }
+
+        .video-frame {
+            position: relative;
+            border-radius: 18px;
+            overflow: hidden;
+            background: #d6d1cb;
+            min-height: 420px;
+            border: 1px solid rgba(110,100,90,0.10);
+        }
+
+        video {
+            display: block;
+            width: 100%;
+            height: 420px;
+            object-fit: cover;
+            background: #cfc8c1;
+        }
+
+        .face-guide {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            pointer-events: none;
+        }
+
+        .face-guide::before {
+            content: "";
+            width: min(62%, 290px);
+            aspect-ratio: 1 / 1.12;
+            border: 2px solid rgba(255,255,255,0.85);
+            border-radius: 42% 42% 46% 46% / 36% 36% 52% 52%;
+            box-shadow:
+                0 0 0 999px rgba(20, 18, 15, 0.16),
+                0 0 0 10px rgba(255,255,255,0.05);
+        }
+
+        .face-guide-line {
+            position: absolute;
+            left: 50%;
+            top: 24%;
+            transform: translateX(-50%);
+            width: min(55%, 250px);
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(140, 176, 163, 0.92), transparent);
+            box-shadow: 0 0 18px rgba(140, 176, 163, 0.42);
+            animation: scan 2.8s ease-in-out infinite;
+        }
+
+        @keyframes scan {
+            0% { top: 24%; opacity: 0.4; }
+            50% { top: 72%; opacity: 1; }
+            100% { top: 24%; opacity: 0.4; }
+        }
+
+        .panel-right {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            background: linear-gradient(180deg, rgba(250,248,244,0.95) 0%, rgba(243,238,231,0.95) 100%);
+        }
+
+        .info-card {
+            background: rgba(255,255,255,0.52);
+            border: 1px solid #e1dcd5;
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            margin-bottom: 18px;
+        }
+
+        .info-card h2 {
+            margin: 0 0 10px 0;
+            font-size: 1.08rem;
+            font-weight: 650;
+        }
+
+        .info-card p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.65;
+            font-size: 0.96rem;
+        }
+
+        .steps {
+            margin: 18px 0 0 0;
+            padding: 0;
+            list-style: none;
+            display: grid;
+            gap: 12px;
+        }
+
+        .steps li {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            font-size: 0.95rem;
+            line-height: 1.55;
+        }
+
+        .steps li span {
+            width: 30px;
+            height: 30px;
+            flex: 0 0 30px;
+            display: grid;
+            place-items: center;
+            border-radius: 999px;
+            background: var(--primary-soft);
+            color: var(--primary-hover);
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        form {
+            margin-top: 24px;
+        }
+
+        input[type="hidden"] {
+            display: none;
+        }
+
+        .actions {
+            display: grid;
+            gap: 12px;
+        }
+
+        .btn-primary,
+        .btn-secondary {
+            width: 100%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 15px 18px;
+            border-radius: 14px;
+            font-size: 0.97rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            border: none;
+            cursor: pointer;
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 10px 22px rgba(111, 143, 136, 0.22);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid #d5cec6;
+            color: var(--text);
+        }
+
+        .btn-secondary:hover {
+            background: #f3efea;
+        }
+
+        #status {
+            margin-top: 16px;
+        }
+
+        .status-box {
+            padding: 13px 14px;
+            border-radius: 14px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            border: 1px solid transparent;
+        }
+
+        .status-info {
+            background: var(--info-bg);
+            border-color: var(--info-border);
+            color: var(--info-text);
+        }
+
+        .status-error {
+            background: var(--error-bg);
+            border-color: var(--error-border);
+            color: var(--error-text);
+        }
+
+        .status-success {
+            background: var(--success-bg);
+            border-color: var(--success-border);
+            color: var(--success-text);
+        }
+
+        .note {
+            margin-top: 18px;
+            color: var(--muted);
+            font-size: 0.9rem;
+            line-height: 1.65;
+        }
+
+        canvas {
+            display: none;
+        }
+
+        @media (max-width: 980px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+
+            .panel-left {
+                border-right: none;
+                border-bottom: 1px solid rgba(221, 215, 207, 0.9);
+            }
+        }
+
+        @media (max-width: 640px) {
+            body {
+                padding: 14px;
+            }
+
+            .panel {
+                padding: 22px;
+            }
+
+            h1 {
+                font-size: 1.65rem;
+                max-width: 100%;
+            }
+
+            video,
+            .video-frame {
+                min-height: 300px;
+                height: 300px;
+            }
+        }
+    </style>
 </head>
 <body>
-    <h1>Registrar rostro</h1>
-    <p>Usuario: {{ user.username }}</p>
+    <div class="page">
+        <div class="layout">
+            <section class="panel panel-left">
+                <div class="eyebrow">Registro biométrico</div>
+                <h1>Registrar rostro</h1>
+                <p class="subtitle">
+                    Captura una imagen clara de tu rostro para asociarla a tu cuenta y habilitar el acceso biométrico en futuros inicios de sesión.
+                </p>
 
-    <video id="video" width="640" height="480" autoplay></video>
-    <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
+                <div class="user-pill">Usuario: {{ user.username }}</div>
 
-    <form id="face-form" method="post">
-        {% csrf_token %}
-        <input type="hidden" name="image_data" id="image_data">
-        <button type="submit">Registrar rostro</button>
-    </form>
+                <div class="camera-shell">
+                    <div class="camera-header">
+                        <div class="camera-title">Captura en tiempo real</div>
+                        <div class="camera-badge">Cámara activa</div>
+                    </div>
 
-    <div id="status"></div>
+                    <div class="video-frame">
+                        <video id="video" autoplay playsinline></video>
+                        <div class="face-guide">
+                            <div class="face-guide-line"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <aside class="panel panel-right">
+                <div class="info-card">
+                    <h2>Antes de registrar</h2>
+                    <p>
+                        Asegúrate de estar en un lugar con buena iluminación frontal, sin sombras intensas y con el rostro centrado dentro del área visible.
+                    </p>
+                </div>
+
+                <ul class="steps">
+                    <li><span>1</span>Colócate frente a la cámara y mantén el rostro visible.</li>
+                    <li><span>2</span>Presiona el botón para capturar tu imagen actual.</li>
+                    <li><span>3</span>El sistema procesará y guardará tu patrón facial asociado a tu cuenta.</li>
+                </ul>
+
+                <form id="face-form" method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="image_data" id="image_data">
+
+                    <div class="actions">
+                        <button type="submit" class="btn-primary">Registrar rostro</button>
+                        <a href="/" class="btn-secondary">Volver al inicio</a>
+                    </div>
+                </form>
+
+                <div id="status"></div>
+
+                <p class="note">
+                    Si el sistema no detecta tu rostro correctamente, ajusta la iluminación y vuelve a intentarlo con la mirada dirigida hacia la cámara.
+                </p>
+            </aside>
+        </div>
+    </div>
+
+    <canvas id="canvas" width="640" height="480"></canvas>
 
     <script>
         const video = document.getElementById('video');
@@ -26,16 +467,29 @@
         const form = document.getElementById('face-form');
         const status = document.getElementById('status');
 
+        function renderStatus(message, type = 'info') {
+            const classes = {
+                info: 'status-box status-info',
+                error: 'status-box status-error',
+                success: 'status-box status-success'
+            };
+            status.innerHTML = `<div class="${classes[type] || classes.info}">${message}</div>`;
+        }
+
         navigator.mediaDevices.getUserMedia({ video: true })
             .then(stream => {
                 video.srcObject = stream;
+                renderStatus('Cámara preparada. Cuando estés listo, registra tu rostro.', 'info');
             })
             .catch(error => {
-                status.innerHTML = '<p style="color:red;">No se pudo acceder a la cámara: ' + error + '</p>';
+                renderStatus('No se pudo acceder a la cámara: ' + error, 'error');
             });
 
         form.addEventListener('submit', function(e) {
             e.preventDefault();
+
+            renderStatus('Procesando captura facial...', 'info');
+
             const context = canvas.getContext('2d');
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
             imageDataInput.value = canvas.toDataURL('image/jpeg');
@@ -48,7 +502,10 @@
             })
             .then(response => response.json())
             .then(data => {
-                status.innerHTML = '<p>' + data.message + '</p>';
+                renderStatus(data.message, data.success ? 'success' : 'error');
+            })
+            .catch(error => {
+                renderStatus('Ocurrió un error inesperado: ' + error, 'error');
             });
         });
     </script>
