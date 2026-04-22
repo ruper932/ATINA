@@ -23,9 +23,7 @@
             --radius-md: 14px;
         }
 
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
         body {
             margin: 0;
@@ -126,6 +124,13 @@
             margin-top: 28px;
         }
 
+        /* Normaliza el form para que no rompa el layout flex */
+        .hero-actions form {
+            margin: 0;
+            padding: 0;
+            display: contents;
+        }
+
         .btn-primary,
         .btn-secondary,
         .btn-ghost {
@@ -139,6 +144,8 @@
             font-size: 0.97rem;
             font-weight: 600;
             transition: all 0.2s ease;
+            cursor: pointer;
+            font-family: inherit;
         }
 
         .btn-primary {
@@ -262,7 +269,9 @@
             gap: 12px;
         }
 
-        .links-list a {
+        /* Estilo compartido para enlaces y botones de logout en links-list */
+        .links-list a,
+        .links-list .logout-btn {
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -273,17 +282,31 @@
             background: rgba(255,255,255,0.52);
             border: 1px solid #e4ddd5;
             transition: all 0.2s ease;
+            font-size: 1rem;
+            font-family: inherit;
+            font-weight: normal;
+            cursor: pointer;
+            width: 100%;
+            text-align: left;
         }
 
-        .links-list a:hover {
+        .links-list a:hover,
+        .links-list .logout-btn:hover {
             background: #f3efea;
             transform: translateX(2px);
         }
 
-        .links-list a::after {
+        .links-list a::after,
+        .links-list .logout-btn::after {
             content: "↗";
             color: var(--muted);
             font-size: 1rem;
+        }
+
+        /* El form de logout no debe añadir espacio */
+        .links-list .logout-form {
+            margin: 0;
+            padding: 0;
         }
 
         .feature-list li {
@@ -364,46 +387,17 @@
         }
 
         @media (max-width: 980px) {
-            .hero {
-                grid-template-columns: 1fr;
-            }
-
-            .wide-card,
-            .card {
-                grid-column: span 12;
-            }
-
-            h1 {
-                max-width: 100%;
-            }
+            .hero { grid-template-columns: 1fr; }
+            .wide-card, .card { grid-column: span 12; }
+            h1 { max-width: 100%; }
         }
 
         @media (max-width: 640px) {
-            .page {
-                padding: 18px 14px 40px;
-            }
-
-            .hero-main,
-            .hero-side,
-            .card,
-            .wide-card,
-            .unauth-card {
-                padding: 22px;
-            }
-
-            h1 {
-                font-size: 1.9rem;
-            }
-
-            .hero-actions {
-                flex-direction: column;
-            }
-
-            .btn-primary,
-            .btn-secondary,
-            .btn-ghost {
-                width: 100%;
-            }
+            .page { padding: 18px 14px 40px; }
+            .hero-main, .hero-side, .card, .wide-card, .unauth-card { padding: 22px; }
+            h1 { font-size: 1.9rem; }
+            .hero-actions { flex-direction: column; }
+            .btn-primary, .btn-secondary, .btn-ghost { width: 100%; }
         }
     </style>
 </head>
@@ -421,8 +415,12 @@
                     </p>
 
                     <div class="hero-actions">
-                        <a href="biometric/admin-panel/user/" class="btn-primary">Ir al panel admin</a>
-                        <a href="/accounts/logout/" class="btn-secondary">Cerrar sesión</a>
+                        <a href="{% url 'user_list' %}" class="btn-primary">Ir al panel admin</a>
+
+                        <form action="{% url 'logout' %}" method="post">
+                            {% csrf_token %}
+                            <button type="submit" class="btn-secondary">Cerrar sesión</button>
+                        </form>
                     </div>
                 </div>
 
@@ -434,7 +432,6 @@
                             Has iniciado sesión correctamente en el entorno principal del sistema. Desde aquí puedes acceder al panel administrativo y gestionar tus métodos de autenticación.
                         </p>
                     </div>
-
                     <div class="status-pill">Acceso verificado</div>
                 </aside>
             </section>
@@ -447,8 +444,7 @@
                     </p>
 
                     <div class="passkey-box">
-                        <a href="/biometric/register-face/" class="btn-primary">Registrara Face ID / Passkey</a>
-                        
+                        <a href="/biometric/register-face/" class="btn-primary">Registrar Face ID / Passkey</a>
                         <div id="passkey-register-status-message"></div>
                     </div>
                 </div>
@@ -460,8 +456,16 @@
                     </p>
 
                     <ul class="links-list">
-                        <li><a href="biometric/admin-panel/users/">Panel administrativo</a></li>
-                        <li><a href="/accounts/logout/">Cerrar sesión</a></li>
+                        <li>
+                            <a href="{% url 'user_list' %}">Panel administrativo</a>
+                        </li>
+                        <li>
+                            <!-- ✅ POST requerido por Django desde v5+ -->
+                            <form action="{% url 'logout' %}" method="post" class="logout-form">
+                                {% csrf_token %}
+                                <button type="submit" class="logout-btn">Cerrar sesión</button>
+                            </form>
+                        </li>
                     </ul>
                 </div>
 

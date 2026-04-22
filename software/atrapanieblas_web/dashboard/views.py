@@ -11,6 +11,9 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.models import User
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
+from django.contrib.auth import authenticate, login
+from django.contrib.auth.forms import AuthenticationForm
+from django.shortcuts import redirect
 
 @login_required
 def register_face(request):
@@ -73,18 +76,21 @@ def face_login(request):
 
 def user_login(request):
     if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password')
-
-        user = authenticate(request, username=username, password=password)
-
-        if user is not None:
-            login(request, user)
-            return redirect('/')
+        form = AuthenticationForm(request, data=request.POST)
+        if form.is_valid():
+            username = form.cleaned_data.get('username')
+            password = form.cleaned_data.get('password')
+            user = authenticate(request, username=username, password=password)
+            if user is not None:
+                login(request, user)
+                return redirect('home')  # o donde quieras redirigir
         else:
-            messages.error(request, 'Usuario o contraseña incorrectos')
+            # Errores en el formulario
+            pass
+    else:
+        form = AuthenticationForm()
 
-    return render(request, 'login.html')
+    return render(request, 'registration/login.html', {'form': form})
 
 @login_required
 def user_logout(request):
