@@ -1,0 +1,158 @@
+@startuml diagrama
+' Configuración para un estilo limpio y profesional
+hide circle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam class {
+    BackgroundColor White
+    ArrowColor #2688d4
+    BorderColor #2688d4
+}
+
+entity "roles" as roles {
+    * id_rol : INTEGER <<PK>>
+    --
+    nombre : VARCHAR(50)
+    descripcion : TEXT
+}
+
+entity "usuarios" as usuarios {
+    * id_usuario : INTEGER <<PK>>
+    --
+    * id_rol : INTEGER <<FK>>
+    nombre : VARCHAR(120)
+    correo : VARCHAR(120)
+    contrasena_hash : TEXT
+    estado : VARCHAR(20)
+    fecha_creacion : TIMESTAMP
+}
+
+entity "atrapanieblas" as atrapanieblas {
+    * id_atrapanieblas : INTEGER <<PK>>
+    --
+    codigo : VARCHAR(50)
+    ubicacion : VARCHAR(150)
+    estado : VARCHAR(20)
+    fecha_instalacion : DATE
+    descripcion : TEXT
+}
+
+entity "invernaderos" as invernaderos {
+    * id_invernadero : INTEGER <<PK>>
+    --
+    nombre : VARCHAR(100)
+    ubicacion : VARCHAR(150)
+    tipo_cultivo : VARCHAR(100)
+    estado : VARCHAR(20)
+    descripcion : TEXT
+}
+
+entity "tanques" as tanques {
+    * id_tanque : INTEGER <<PK>>
+    --
+    nombre : VARCHAR(100)
+    capacidad_litros : NUMERIC
+    nivel_actual : NUMERIC
+    ubicacion : VARCHAR(150)
+    estado : VARCHAR(20)
+}
+
+entity "dispositivos" as dispositivos {
+    * id_dispositivo : INTEGER <<PK>>
+    --
+    codigo : VARCHAR(50)
+    tipo : VARCHAR(50)
+    ubicacion : VARCHAR(150)
+    estado : VARCHAR(20)
+    fecha_instalacion : DATE
+    descripcion : TEXT
+}
+
+entity "sensores" as sensores {
+    * id_sensor : INTEGER <<PK>>
+    --
+    * id_dispositivo : INTEGER <<FK>>
+    tipo_sensor : VARCHAR(50)
+    unidad_medida : VARCHAR(30)
+    estado : VARCHAR(20)
+}
+
+entity "lecturas_sensor" as lecturas {
+    * id_lectura : BIGINT <<PK>>
+    --
+    * id_sensor : INTEGER <<FK>>
+    valor : NUMERIC
+    fecha_hora : TIMESTAMP
+    calidad_dato : VARCHAR(20)
+}
+
+entity "captacion_agua" as captacion {
+    * id_captacion : BIGINT <<PK>>
+    --
+    * id_atrapanieblas : INTEGER <<FK>>
+    * id_tanque : INTEGER <<FK>>
+    volumen_litros : NUMERIC
+    fecha_hora : TIMESTAMP
+}
+
+entity "transferencias_agua" as transferencias {
+    * id_transferencia : BIGINT <<PK>>
+    --
+    * id_tanque_origen : INTEGER <<FK>>
+    * id_invernadero : INTEGER <<FK>>
+    volumen_litros : NUMERIC
+    fecha_hora : TIMESTAMP
+}
+
+entity "riegos" as riegos {
+    * id_riego : BIGINT <<PK>>
+    --
+    * id_invernadero : INTEGER <<FK>>
+    fecha_hora_inicio : TIMESTAMP
+    volumen_aplicado : NUMERIC
+    modo : VARCHAR(20)
+}
+
+entity "predicciones" as predicciones {
+    * id_prediccion : BIGINT <<PK>>
+    --
+    id_invernadero : INTEGER <<FK>>
+    tipo_prediccion : VARCHAR(50)
+    valor_predicho : NUMERIC
+    periodo_inicio : TIMESTAMP
+    periodo_fin : TIMESTAMP
+}
+
+entity "recomendaciones" as recomendaciones {
+    * id_recomendacion : BIGINT <<PK>>
+    --
+    * id_prediccion : BIGINT <<FK>>
+    id_invernadero : INTEGER <<FK>>
+    accion_sugerida : TEXT
+}
+
+entity "alertas" as alertas {
+    * id_alerta : BIGINT <<PK>>
+    --
+    id_sensor : INTEGER <<FK>>
+    id_dispositivo : INTEGER <<FK>>
+    tipo_alerta : VARCHAR(50)
+    mensaje : TEXT
+    severidad : VARCHAR(20)
+}
+
+' Definición de relaciones basadas en tus FK
+roles ||--o{ usuarios
+dispositivos ||--|{ sensores
+sensores ||--o{ lecturas
+atrapanieblas ||--o{ captacion
+tanques ||--o{ captacion
+tanques ||--o{ transferencias
+invernaderos ||--o{ transferencias
+invernaderos ||--o{ riegos
+invernaderos ||--o{ predicciones
+predicciones ||--|{ recomendaciones
+sensores ||--o{ alertas
+dispositivos ||--o{ alertas
+
+@enduml

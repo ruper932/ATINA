@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+
+{% block title %}ATINA | Reportes{% endblock %}
+{% block page_heading %}Reportes{% endblock %}
+{% block page_subheading %}Visualización general de reportes del sistema.{% endblock %}
+{% block nav_reportes %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .stat-card {
+        background: rgba(255,255,255,0.78);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 20px;
+        box-shadow: var(--shadow);
+    }
+
+    .stat-card span {
+        display: block;
+        font-size: 0.82rem;
+        color: var(--muted);
+        margin-bottom: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+
+    .stat-card strong {
+        font-size: 1.9rem;
+        line-height: 1;
+    }
+
+    .report-section {
+        margin-top: 24px;
+    }
+
+    .report-section h2 {
+        margin: 0 0 14px;
+        font-size: 1.1rem;
+    }
+
+    .table-wrap {
+        overflow-x: auto;
+        background: rgba(255,255,255,0.72);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        box-shadow: var(--shadow);
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 760px;
+    }
+
+    thead th {
+        text-align: left;
+        font-size: 0.82rem;
+        color: var(--muted);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        background: #f5f1eb;
+    }
+
+    th, td {
+        padding: 14px 16px;
+        border-bottom: 1px solid #ece5dc;
+        vertical-align: top;
+    }
+
+    tbody tr:hover {
+        background: #faf7f2;
+    }
+
+    tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    .empty-state {
+        background: rgba(255,255,255,0.72);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 20px;
+        color: var(--muted);
+    }
+
+    @media (max-width: 1200px) {
+        .stats-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 640px) {
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="stats-grid">
+    <article class="stat-card">
+        <span>Invernaderos</span>
+        <strong>{{ total_invernaderos }}</strong>
+    </article>
+    <article class="stat-card">
+        <span>Sensores</span>
+        <strong>{{ total_sensores }}</strong>
+    </article>
+    <article class="stat-card">
+        <span>Fuentes</span>
+        <strong>{{ total_fuentes }}</strong>
+    </article>
+    <article class="stat-card">
+        <span>Lecturas</span>
+        <strong>{{ total_lecturas }}</strong>
+    </article>
+    <article class="stat-card">
+        <span>Decisiones</span>
+        <strong>{{ total_decisiones }}</strong>
+    </article>
+</section>
+
+<section class="report-section">
+    <h2>Invernaderos por ubicación</h2>
+    {% if invernaderos %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Nombre</th>
+                    <th>Ubicación</th>
+                    <th>Tipo</th>
+                    <th>Área</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in invernaderos %}
+                <tr>
+                    <td>{{ item.codigo }}</td>
+                    <td>{{ item.nombre }}</td>
+                    <td>{{ item.ubicacion_nombre }}</td>
+                    <td>{{ item.tipo_ubicacion }}</td>
+                    <td>{{ item.area_m2 }}</td>
+                    <td>{{ item.estado }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No hay datos de invernaderos disponibles.</div>
+    {% endif %}
+</section>
+
+<section class="report-section">
+    <h2>Sensores por tipo</h2>
+    {% if sensores %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Nombre</th>
+                    <th>Tipo</th>
+                    <th>Variable</th>
+                    <th>Unidad</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in sensores %}
+                <tr>
+                    <td>{{ item.codigo }}</td>
+                    <td>{{ item.nombre }}</td>
+                    <td>{{ item.tipo_sensor_nombre }}</td>
+                    <td>{{ item.variable_medida }}</td>
+                    <td>{{ item.unidad_base }}</td>
+                    <td>{{ item.estado }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No hay datos de sensores disponibles.</div>
+    {% endif %}
+</section>
+
+<section class="report-section">
+    <h2>Fuentes por ubicación</h2>
+    {% if fuentes %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Nombre</th>
+                    <th>Tipo fuente</th>
+                    <th>Capacidad</th>
+                    <th>Ubicación</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in fuentes %}
+                <tr>
+                    <td>{{ item.codigo }}</td>
+                    <td>{{ item.nombre }}</td>
+                    <td>{{ item.tipo_fuente }}</td>
+                    <td>{{ item.capacidad_l }}</td>
+                    <td>{{ item.ubicacion_nombre }}</td>
+                    <td>{{ item.estado }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No hay datos de fuentes disponibles.</div>
+    {% endif %}
+</section>
+
+<section class="report-section">
+    <h2>Últimas lecturas</h2>
+    {% if lecturas %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Sensor</th>
+                    <th>Nombre</th>
+                    <th>Tipo</th>
+                    <th>Valor</th>
+                    <th>Unidad</th>
+                    <th>Fecha lectura</th>
+                    <th>Calidad</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in lecturas %}
+                <tr>
+                    <td>{{ item.sensor_codigo }}</td>
+                    <td>{{ item.sensor_nombre }}</td>
+                    <td>{{ item.tipo_sensor_nombre }}</td>
+                    <td>{{ item.valor }}</td>
+                    <td>{{ item.unidad_base }}</td>
+                    <td>{{ item.timestamp_lectura|date:"d/m/Y H:i" }}</td>
+                    <td>{{ item.calidad_dato }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No hay lecturas registradas.</div>
+    {% endif %}
+</section>
+
+<section class="report-section">
+    <h2>Últimas decisiones de riego</h2>
+    {% if decisiones %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Invernadero</th>
+                    <th>Fuente</th>
+                    <th>Origen</th>
+                    <th>Modo</th>
+                    <th>Volumen aplicado</th>
+                    <th>Estado válvula</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in decisiones %}
+                <tr>
+                    <td>{{ item.ejecutado_en|date:"d/m/Y H:i" }}</td>
+                    <td>{{ item.invernadero_nombre }}</td>
+                    <td>{{ item.fuente_nombre|default:"Sin fuente" }}</td>
+                    <td>{{ item.origen_decision }}</td>
+                    <td>{{ item.modo_riego }}</td>
+                    <td>{{ item.volumen_aplicado_l|default:"0" }}</td>
+                    <td>{{ item.estado_valvula }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No hay decisiones registradas.</div>
+    {% endif %}
+</section>
+{% endblock %}

@@ -1,216 +1,56 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iniciar sesión</title>
-    <style>
-        :root {
-            --bg: #f4f1ec;
-            --card: #fbfaf7;
-            --card-border: #ddd8d1;
-            --text: #2f2a24;
-            --muted: #7a746c;
-            --input-bg: #f8f6f2;
-            --input-border: #d8d2ca;
-            --input-focus: #8aa39b;
-            --button: #6f8f88;
-            --button-hover: #5e7b75;
-            --shadow: 0 10px 30px rgba(50, 40, 30, 0.08);
-            --radius: 16px;
-        }
+{% extends "base.html" %}
 
-        * {
-            box-sizing: border-box;
-        }
+{% block title %}ATINA | Iniciar sesión{% endblock %}
+{% block page_heading %}Iniciar sesión{% endblock %}
+{% block page_subheading %}Accede al entorno administrativo del sistema.{% endblock %}
 
-        body {
-            margin: 0;
-            min-height: 100vh;
-            font-family: "Inter", "Segoe UI", sans-serif;
-            background: linear-gradient(180deg, #f7f4ef 0%, #f1ede7 100%);
-            color: var(--text);
-            display: grid;
-            place-items: center;
-            padding: 24px;
-        }
+{% block content %}
+    <section style="max-width: 480px;">
+        <article class="panel">
+            <h2 style="margin-top:0;">Acceso</h2>
 
-        .login-wrapper {
-            width: 100%;
-            max-width: 420px;
-        }
-
-        .login-card {
-            background: var(--card);
-            border: 1px solid var(--card-border);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            padding: 36px 32px;
-        }
-
-        .eyebrow {
-            font-size: 0.82rem;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: var(--muted);
-            margin-bottom: 10px;
-        }
-
-        h1 {
-            margin: 0 0 8px 0;
-            font-size: 1.9rem;
-            font-weight: 600;
-            color: var(--text);
-        }
-
-        .subtitle {
-            margin: 0 0 28px 0;
-            color: var(--muted);
-            font-size: 0.98rem;
-            line-height: 1.5;
-        }
-
-        .message {
-            background: #f7ebe8;
-            border: 1px solid #e6c8bf;
-            color: #8b4d3d;
-            padding: 12px 14px;
-            border-radius: 12px;
-            margin-bottom: 18px;
-            font-size: 0.95rem;
-        }
-
-        form {
-            display: grid;
-            gap: 18px;
-        }
-
-        .field {
-            display: grid;
-            gap: 8px;
-        }
-
-        label {
-            font-size: 0.95rem;
-            font-weight: 500;
-            color: var(--text);
-        }
-
-        input {
-            width: 100%;
-            padding: 14px 15px;
-            border-radius: 12px;
-            border: 1px solid var(--input-border);
-            background: var(--input-bg);
-            color: var(--text);
-            font-size: 0.98rem;
-            outline: none;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-        }
-
-        input:focus {
-            border-color: var(--input-focus);
-            box-shadow: 0 0 0 4px rgba(138, 163, 155, 0.15);
-            background: #fcfbf9;
-        }
-
-        .button-group {
-            display: grid;
-            gap: 12px;
-            margin-top: 8px;
-        }
-
-        .btn-primary,
-        .btn-secondary {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            padding: 14px 16px;
-            border-radius: 12px;
-            text-decoration: none;
-            font-size: 0.98rem;
-            font-weight: 600;
-            transition: all 0.2s ease;
-            cursor: pointer;
-        }
-
-        .btn-primary {
-            border: none;
-            background: var(--button);
-            color: #ffffff;
-        }
-
-        .btn-primary:hover {
-            background: var(--button-hover);
-        }
-
-        .btn-secondary {
-            border: 1px solid var(--input-border);
-            background: transparent;
-            color: var(--text);
-        }
-
-        .btn-secondary:hover {
-            background: #f3efea;
-        }
-
-        .footer-note {
-            margin-top: 22px;
-            text-align: center;
-            color: var(--muted);
-            font-size: 0.9rem;
-        }
-
-        @media (max-width: 480px) {
-            .login-card {
-                padding: 28px 22px;
-            }
-
-            h1 {
-                font-size: 1.6rem;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="login-wrapper">
-        <div class="login-card">
-            <div class="eyebrow">Sistema Atrapanieblas</div>
-            <h1>Iniciar sesión</h1>
-            <p class="subtitle">
-                Accede al panel de monitoreo con tus credenciales o mediante reconocimiento facial.
-            </p>
-
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="message">{{ message }}</div>
-                {% endfor %}
+            {% if form.errors %}
+                <div style="margin: 14px 0; padding: 12px 14px; border-radius: 12px; background: #f9ece9; border: 1px solid #e7c8bf; color: #7d3e2f;">
+                    Usuario o contraseña incorrectos.
+                </div>
             {% endif %}
 
             <form method="post">
                 {% csrf_token %}
 
-                <div class="field">
-                    <label for="username">Usuario</label>
-                    <input id="username" type="text" name="username" required>
+                <div style="display:grid; gap:8px; margin-bottom:16px;">
+                    <label for="{{ form.username.id_for_label }}">Usuario</label>
+                    {{ form.username }}
                 </div>
 
-                <div class="field">
-                    <label for="password">Contraseña</label>
-                    <input id="password" type="password" name="password" required>
+                <div style="display:grid; gap:8px; margin-bottom:18px;">
+                    <label for="{{ form.password.id_for_label }}">Contraseña</label>
+                    {{ form.password }}
                 </div>
 
-                <div class="button-group">
-                    <button type="submit" class="btn-primary">Iniciar sesión</button>
-                    <a href="/biometric/face-login/" class="btn-secondary">Entrar con reconocimiento facial</a>
-                </div>
+                {% if next %}
+                    <input type="hidden" name="next" value="{{ next }}">
+                {% endif %}
+
+                <button type="submit" class="btn-primary" style="width:100%;">Ingresar</button>
             </form>
+        </article>
+    </section>
 
-            <p class="footer-note">
-                Acceso seguro al sistema de monitoreo y predicción hídrica.
-            </p>
-        </div>
-    </div>
-</body>
-</html>
+    <style>
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            min-height: 44px;
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: #fff;
+            font: inherit;
+        }
+
+        label {
+            font-size: 0.94rem;
+            font-weight: 600;
+        }
+    </style>
+{% endblock %}

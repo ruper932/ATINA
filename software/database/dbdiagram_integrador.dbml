@@ -1,0 +1,300 @@
+Project Integrador_db {
+  database_type: 'PostgreSQL'
+  Note: 'Modelo relacional normalizado para el sistema inteligente de captacion, monitoreo, prediccion y riego del CEA Ildefonso de las Muñecas.'
+}
+
+Table roles {
+  id bigserial [pk]
+  nombre varchar(50) [not null, unique]
+  descripcion text
+}
+
+Table usuarios {
+  id bigserial [pk]
+  rol_id bigint [not null, ref: > roles.id]
+  nombres varchar(100) [not null]
+  apellidos varchar(100) [not null]
+  username varchar(50) [not null, unique]
+  email varchar(150) [unique]
+  password_hash text [not null]
+  estado varchar(20) [not null, default: 'activo']
+  ultimo_acceso timestamptz
+  creado_en timestamptz [not null, default: `now()`]
+
+  Note: 'Estados sugeridos: activo, inactivo, bloqueado.'
+}
+
+Table ubicaciones {
+  id bigserial [pk]
+  nombre varchar(120) [not null]
+  tipo_ubicacion varchar(30) [not null]
+  descripcion text
+  parent_id bigint [ref: > ubicaciones.id]
+  latitud numeric(9,6)
+  longitud numeric(9,6)
+  altitud_m numeric(8,2)
+
+  Note: 'Jerarquia fisica del predio: campus, sector, invernadero, atrapaniebla, laboratorio, fuente_agua.'
+}
+
+Table invernaderos {
+  id bigserial [pk]
+  ubicacion_id bigint [not null, unique, ref: > ubicaciones.id]
+  codigo varchar(30) [not null, unique]
+  nombre varchar(100) [not null]
+  descripcion text
+  area_m2 numeric(10,2) [not null]
+  prioridad_riego smallint [not null, default: 1]
+  estado varchar(20) [not null, default: 'activo']
+  creado_en timestamptz [not null, default: `now()`]
+}
+
+Table atrapanieblas {
+  id bigserial [pk]
+  ubicacion_id bigint [not null, unique, ref: > ubicaciones.id]
+  codigo varchar(30) [not null, unique]
+  nombre varchar(100) [not null]
+  area_malla_m2 numeric(10,2) [not null]
+  tipo_malla varchar(50)
+  orientacion varchar(30)
+  estado varchar(20) [not null, default: 'activo']
+  fecha_instalacion date
+  creado_en timestamptz [not null, default: `now()`]
+}
+
+Table fuentes_agua {
+  id bigserial [pk]
+  ubicacion_id bigint [ref: > ubicaciones.id]
+  codigo varchar(30) [not null, unique]
+  nombre varchar(100) [not null]
+  tipo_fuente varchar(30) [not null]
+  descripcion text
+  capacidad_l numeric(14,2)
+  estado varchar(20) [not null, default: 'activo']
+  creado_en timestamptz [not null, default: `now()`]
+}
+
+Table tipos_dispositivo {
+  id bigserial [pk]
+  nombre varchar(50) [not null, unique]
+  descripcion text
+}
+
+Table dispositivos {
+  id bigserial [pk]
+  tipo_dispositivo_id bigint [not null, ref: > tipos_dispositivo.id]
+  ubicacion_id bigint [ref: > ubicaciones.id]
+  fuente_agua_id bigint [ref: > fuentes_agua.id]
+  codigo varchar(50) [not null, unique]
+  nombre varchar(100) [not null]
+  identificador_local varchar(100)
+  ip_local inet
+  version_firmware varchar(50)
+  estado varchar(20) [not null, default: 'activo']
+  ultima_conexion timestamptz
+  creado_en timestamptz [not null, default: `now()`]
+}
+
+Table tipos_sensor {
+  id bigserial [pk]
+  nombre varchar(50) [not null, unique]
+  variable_medida varchar(50) [not null]
+  unidad_base varchar(30) [not null]
+  descripcion text
+}
+
+Table sensores {
+  id bigserial [pk]
+  dispositivo_id bigint [not null, ref: > dispositivos.id]
+  tipo_sensor_id bigint [not null, ref: > tipos_sensor.id]
+  codigo varchar(50) [not null, unique]
+  nombre varchar(100) [not null]
+  modelo varchar(50)
+  numero_serie varchar(100)
+  precision_valor numeric(10,4)
+  estado varchar(20) [not null, default: 'activo']
+  fecha_instalacion date
+}
+
+Table lecturas_sensor {
+  id bigserial [pk]
+  sensor_id bigint [not null, ref: > sensores.id]
+  valor numeric(14,4) [not null]
+  calidad_dato varchar(20) [not null, default: 'valido']
+  timestamp_lectura timestamptz [not null]
+  timestamp_recepcion timestamptz [not null, default: `now()`]
+  metadatos jsonb
+
+  indexes {
+    (sensor_id, timestamp_lectura) [name: 'idx_lecturas_sensor_sensor_fecha']
+  }
+}
+
+Table tipos_actuador {
+  id bigserial [pk]
+  nombre varchar(50) [not null, unique]
+  descripcion text
+}
+
+Table actuadores {
+  id bigserial [pk]
+  dispositivo_id bigint [not null, ref: > dispositivos.id]
+  tipo_actuador_id bigint [not null, ref: > tipos_actuador.id]
+  invernadero_id bigint [ref: > invernaderos.id]
+  codigo varchar(50) [not null, unique]
+  nombre varchar(100) [not null]
+  estado varchar(20) [not null, default: 'activo']
+  fecha_instalacion date
+}
+
+Table predicciones_ml1 {
+  id bigserial [pk]
+  fuente_agua_id bigint [not null, ref: > fuentes_agua.id]
+  fecha_prediccion date [not null]
+  fecha_objetivo date [not null]
+  volumen_predicho_l numeric(14,4) [not null]
+  margen_error numeric(10,4)
+  confianza_modelo numeric(5,2)
+  variables_entrada_resumen jsonb
+  version_modelo varchar(50) [not null]
+  generado_en timestamptz [not null, default: `now()`]
+
+  indexes {
+    (fuente_agua_id, fecha_objetivo, version_modelo) [unique, name: 'uq_prediccion_ml1']
+  }
+}
+
+Table decisiones_riego {
+  id bigserial [pk]
+  invernadero_id bigint [not null, ref: > invernaderos.id]
+  actuador_id bigint [ref: > actuadores.id]
+  fuente_agua_id bigint [ref: > fuentes_agua.id]
+  origen_decision varchar(30) [not null]
+  modo_riego varchar(20) [not null]
+  estado_valvula varchar(20) [not null]
+  volumen_disponible_l numeric(14,4) [default: 0]
+  demanda_estimada_l numeric(14,4) [default: 0]
+  volumen_aplicado_l numeric(14,4)
+  decision_texto text
+  ejecutado_en timestamptz [not null, default: `now()`]
+
+  indexes {
+    (invernadero_id, ejecutado_en) [name: 'idx_decisiones_riego_invernadero_fecha']
+  }
+}
+
+Table estado_riego_actual {
+  invernadero_id bigint [pk, ref: > invernaderos.id]
+  ultima_decision_id bigint [not null, ref: > decisiones_riego.id]
+  actualizado_en timestamptz [not null, default: `now()`]
+}
+
+Table simulaciones_ml3 {
+  id bigserial [pk]
+  invernadero_id bigint [not null, ref: > invernaderos.id]
+  fecha_generacion timestamptz [not null, default: `now()`]
+  horizonte_horas integer [not null, default: 72]
+  escenario varchar(30) [not null]
+  nivel_riesgo varchar(20) [not null]
+  descripcion_resultado text
+  recomendacion text
+  version_modelo varchar(50) [not null]
+  generado_en timestamptz [not null, default: `now()`]
+
+  indexes {
+    (invernadero_id, fecha_generacion) [name: 'idx_simulaciones_ml3_invernadero_fecha']
+  }
+}
+
+Table alertas {
+  id bigserial [pk]
+  invernadero_id bigint [ref: > invernaderos.id]
+  dispositivo_id bigint [ref: > dispositivos.id]
+  sensor_id bigint [ref: > sensores.id]
+  decision_riego_id bigint [ref: > decisiones_riego.id]
+  simulacion_ml3_id bigint [ref: > simulaciones_ml3.id]
+  tipo_alerta varchar(50) [not null]
+  severidad varchar(20) [not null]
+  origen_alerta varchar(30) [not null]
+  mensaje text [not null]
+  estado_alerta varchar(20) [not null, default: 'activa']
+  fecha_generacion timestamptz [not null, default: `now()`]
+  fecha_reconocimiento timestamptz
+  usuario_reconoce bigint [ref: > usuarios.id]
+
+  indexes {
+    (estado_alerta, fecha_generacion) [name: 'idx_alertas_estado_fecha']
+  }
+}
+
+Table notificaciones_locales {
+  id bigserial [pk]
+  alerta_id bigint [not null, ref: > alertas.id]
+  tipo_notificacion varchar(30) [not null]
+  estado_envio varchar(20) [not null, default: 'pendiente']
+  fecha_envio timestamptz
+  fecha_confirmacion timestamptz
+  detalle_respuesta text
+}
+
+Table configuraciones_umbral {
+  id bigserial [pk]
+  nombre_parametro varchar(100) [not null]
+  descripcion text
+  valor numeric(14,4) [not null]
+  unidad varchar(30)
+  ambito varchar(30) [not null, default: 'global']
+  invernadero_id bigint [ref: > invernaderos.id]
+  sensor_id bigint [ref: > sensores.id]
+  editable boolean [not null, default: true]
+  actualizado_en timestamptz [not null, default: `now()`]
+  actualizado_por bigint [ref: > usuarios.id]
+}
+
+Table calibraciones_sensor {
+  id bigserial [pk]
+  sensor_id bigint [not null, ref: > sensores.id]
+  tipo_calibracion varchar(50) [not null]
+  valor_anterior numeric(14,4)
+  valor_nuevo numeric(14,4) [not null]
+  motivo text
+  fecha_calibracion timestamptz [not null, default: `now()`]
+  usuario_id bigint [ref: > usuarios.id]
+}
+
+Table sincronizaciones_mcp {
+  id bigserial [pk]
+  dispositivo_id bigint [ref: > dispositivos.id]
+  origen varchar(50) [not null]
+  destino varchar(50) [not null]
+  tipo_recurso varchar(50) [not null]
+  estado_sincronizacion varchar(20) [not null]
+  cantidad_registros integer [not null, default: 0]
+  fecha_inicio timestamptz [not null, default: `now()`]
+  fecha_fin timestamptz
+  mensaje_resultado text
+}
+
+Table auditoria_acciones {
+  id bigserial [pk]
+  usuario_id bigint [ref: > usuarios.id]
+  accion varchar(100) [not null]
+  entidad_afectada varchar(100) [not null]
+  entidad_id bigint
+  detalle jsonb
+  ip_origen inet
+  fecha_accion timestamptz [not null, default: `now()`]
+}
+
+Table reportes_semanales {
+  id bigserial [pk]
+  periodo_inicio date [not null]
+  periodo_fin date [not null]
+  volumen_captado_l numeric(14,4) [not null, default: 0]
+  volumen_predicho_l numeric(14,4) [not null, default: 0]
+  eficiencia_riego numeric(6,2)
+  total_alertas integer [not null, default: 0]
+  resumen text
+  generado_por bigint [ref: > usuarios.id]
+  fecha_generacion timestamptz [not null, default: `now()`]
+}
