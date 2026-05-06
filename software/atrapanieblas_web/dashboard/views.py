@@ -13,6 +13,14 @@ from .models import (
     VwReporteFuentesUbicacion,
     VwReporteLecturasSensorTipo,
     VwReporteDecisionesInvernaderoFuente,
+    Invernadero,
+    Dispositivo,
+    Sensor,
+    FuenteAgua,
+    Alerta,
+    LecturaSensor,
+    DecisionRiego,
+    Atrapaniebla,
 )
 
 from .models import PerfilUsuario, Rol
@@ -225,4 +233,108 @@ def reportes_view(request):
         "decisiones": decisiones,
     }
     return render(request, "dashboard/reportes.html", context)
-#--------------- EndReportes --------------------------------------
+#--------------- End Reportes --------------------------------------
+
+
+#--------------- Dashboard --------------------------------------
+
+@login_required
+def dashboard_view(request):
+    from django.db.models import Count, Avg, Max, Min
+    from django.utils import timezone
+    from datetime import timedelta
+
+    now = timezone.now()
+    today = now.date()
+    week_ago = now - timedelta(days=7)
+
+    ultimas_alertas = Alerta.objects.select_related('invernadero', 'dispositivo', 'sensor').order_by('-fecha_generacion')[:5]
+    alertas_activas = Alerta.objects.filter(estado_alerta='activa').count()
+    
+    ultimas_lecturas = LecturaSensor.objects.select_related('sensor__tipo_sensor', 'sensor__dispositivo').order_by('-timestamp_lectura')[:10]
+    
+    ultimas_decisiones = DecisionRiego.objects.select_related('invernadero', 'fuente_agua').order_by('-ejecutado_en')[:5]
+
+    invernaderos = Invernadero.objects.all()
+    total_invernaderos = invernaderos.count()
+    invernaderos_activos = invernaderos.filter(estado='activo').count()
+
+    dispositivos = Dispositivo.objects.all()
+    total_dispositivos = dispositivos.count()
+    dispositivos_activos = dispositivos.filter(estado='activo').count()
+
+    sensores = Sensor.objects.all()
+    total_sensores = sensores.count()
+    sensores_activos = sensores.filter(estado='activo').count()
+
+    fuentes = FuenteAgua.objects.all()
+    total_fuentes = fuentes.count()
+    fuentes_activas = fuentes.filter(estado='activo').count()
+
+    atrapanieblas = Atrapaniebla.objects.all()
+    total_atrapanieblas = atrapanieblas.count()
+    atrapanieblas_activas = atrapanieblas.filter(estado='activo').count()
+
+    context = {
+        'ultimas_alertas': ultimas_alertas,
+        'alertas_activas': alertas_activas,
+        'ultimas_lecturas': ultimas_lecturas,
+        'ultimas_decisiones': ultimas_decisiones,
+        'total_invernaderos': total_invernaderos,
+        'invernaderos_activos': invernaderos_activos,
+        'total_dispositivos': total_dispositivos,
+        'dispositivos_activos': dispositivos_activos,
+        'total_sensores': total_sensores,
+        'sensores_activos': sensores_activos,
+        'total_fuentes': total_fuentes,
+        'fuentes_activas': fuentes_activas,
+        'total_atrapanieblas': total_atrapanieblas,
+        'atrapanieblas_activas': atrapanieblas_activas,
+    }
+    return render(request, "dashboard/dashboard.html", context)
+
+
+def dashboard_api(request):
+    from django.db.models import Count
+    from django.utils import timezone
+    from datetime import timedelta
+
+    now = timezone.now()
+
+    alertas_por_estado = list(
+        Alerta.objects.values('estado_alerta')
+        .annotate(count=Count('id'))
+        .order_by('estado_alerta')
+    )
+
+    alertas_por_severidad = list(
+        Alerta.objects.values('severidad')
+        .annotate(count=Count('id'))
+        .order_by('severidad')
+    )
+
+    ultimas_lecturas = list(
+        LecturaSensor.objects.select_related('sensor__tipo_sensor')
+        .order_by('-timestamp_lectura')[:20]
+        .values(
+            'id', 'valor', 'timestamp_lectura', 'calidad_dato',
+            sensor__tipo_sensor__variable_medida, 
+            sensor__tipo_sensor__unidad_base
+        )
+    )
+
+    decisiones_por_origen = list(
+        DecisionRiego.objects.values('origen_decision')
+        .annotate(count=Count('id'))
+        .order_by('origen_decision')
+    )
+
+    return JsonResponse({
+        'alertas_por_estado': alertas_por_estado,
+        'alertas_por_severidad': alertas_por_severidad,
+        'ultimas_lecturas': ultimas_lecturas,
+        'decisiones_por_origen': decisiones_por_origen,
+    })
+
+
+#--------------- End Dashboard --------------------------------------

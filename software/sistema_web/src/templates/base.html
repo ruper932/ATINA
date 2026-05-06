@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ATINA{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        :root {
+            --bg: #f8f9fa;
+            --sidebar-bg: #2c3e50;
+            --primary: #3d85c6;
+            --secondary: #98c379;
+            --text-light: #ffffff;
+            --text-muted: #6c757d;
+        }
+        body {
+            background-color: var(--bg);
+            color: var(--text-muted);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .sidebar {
+            background-color: var(--sidebar-bg);
+            height: 100vh;
+            padding: 1rem;
+            color: var(--text-light);
+        }
+        .sidebar a {
+            color: var(--text-light);
+            text-decoration: none;
+        }
+        .sidebar a:hover {
+            color: var(--secondary);
+        }
+        .content {
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .navbar {
+            background-color: var(--sidebar-bg) !important;
+            padding: 0.5rem 1rem;
+        }
+        .navbar-brand {
+            color: var(--text-light) !important;
+        }
+        .btn-primary {
+            background-color: var(--primary);
+            border-color: var(--primary);
+        }
+        .btn-primary:hover {
+            background-color: #2a5c9b;
+        }
+        .btn-success {
+            background-color: var(--secondary);
+            border-color: var(--secondary);
+        }
+        .btn-success:hover {
+            background-color: #779d6b;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{% url 'dashboard_home' %}">ATINA</a>
+            {% if user.is_authenticated %}
+            <div class="d-flex align-items-center">
+                <a href="{% url 'mi_perfil' %}" class="btn btn-outline-light btn-sm me-2">Mi perfil</a>
+                <form action="{% url 'logout' %}" method="post" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-light btn-sm">Cerrar sesión</button>
+                </form>
+                <span class="navbar-text text-light ms-3">Bienvenido, {{ user.username }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </nav>
+
+    <main class="content">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

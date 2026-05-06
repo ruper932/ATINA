@@ -1,0 +1,19 @@
+export type SensorBase = {
+  dispositivo_id: number
+  tipo_sensor_id: number
+  codigo: string
+  nombre: string
+  modelo?: string | null
+  numero_serie?: string | null
+  precision_valor?: number | null
+  estado_sensor_id: number
+  fecha_instalacion?: string | null
+}
+
+export type SensorCreatePayload = SensorBase
+
+export type SensorUpdatePayload = Partial<SensorBase>
+
+export type SensorResponse = SensorBase & {
+  id: number
+}
