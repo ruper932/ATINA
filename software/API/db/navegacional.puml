@@ -1,0 +1,55 @@
+@startuml
+skinparam component {
+  BackgroundColor #FFFFDD
+  BorderColor #000000
+  FontName Arial
+  FontSize 12
+}
+skinparam shadowing false
+skinparam linetype ortho
+left to right direction
+
+' Definición de Pantallas / Vistas
+component "Pantalla de Login" as login
+
+component "Layout Principal\n(Contenedor + Sidebar)" as layout
+
+component "Dashboard / Inicio" as inicio
+component "Monitor IoT" as iot
+component "Inteligencia Artificial" as ml
+component "Reportes" as reportes
+component "Administración" as admin
+
+component "Métricas Clima" as iot1
+component "Caudal de Agua" as iot2
+
+component "Predicción ML1" as ml1
+component "Simulador Educativo ML3" as ml2
+
+component "Reportes Históricos" as rep1
+component "Alertas" as rep2
+
+component "Gestión Usuarios" as adm1
+component "Backups BD" as adm2
+
+' Flujo de Navegación
+login -right-> layout : [Validación JWT]
+
+layout -down-> inicio
+layout -down-> iot
+layout -down-> ml
+layout -down-> reportes
+layout -down-> admin
+
+iot -right-> iot1
+iot -right-> iot2
+
+ml -right-> ml1
+ml -right-> ml2
+
+reportes -right-> rep1
+reportes -right-> rep2
+
+admin -right-> adm1
+admin -right-> adm2
+@enduml

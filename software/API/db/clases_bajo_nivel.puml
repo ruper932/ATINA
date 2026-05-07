@@ -1,0 +1,100 @@
+@startuml
+skinparam class {
+  BackgroundColor #FFFFDD
+  BorderColor #000000
+  ArrowColor #000000
+  FontName Arial
+  FontSize 12
+  AttributeIconSize 0
+}
+skinparam shadowing false
+skinparam linetype ortho
+hide circle
+
+class DispositivoOrm {
+  - id: BigInt
+  - tipo_dispositivo_id: BigInt
+  - codigo: String(50)
+  - ip_local: Inet
+  - estado_dispositivo_id: BigInt
+  - ultima_conexion: DateTime
+  + registrarConexion(): Boolean
+  + actualizarFirmware(version: String): Void
+}
+
+class SensorOrm {
+  - id: BigInt
+  - dispositivo_id: BigInt
+  - tipo_sensor_id: BigInt
+  - codigo: String(50)
+  - precision_valor: Numeric(10,4)
+  + calibrarSensor(nuevo_valor: Float): Void
+  + obtenerEstado(): String
+}
+
+class LecturaSensorOrm {
+  - id: BigInt
+  - sensor_id: BigInt
+  - valor: Numeric(14,4)
+  - timestamp_lectura: DateTime
+  - calidad_dato_id: BigInt
+  + save(): LecturaSensorOrm
+  + validarRango(): Boolean
+}
+
+class ModeloMlOrm {
+  - id: BigInt
+  - nombre: String(100)
+  - version: String(50)
+  - activo: Boolean
+  + cargarPesos(ruta: String): Void
+  + predecir(datos_raw: Json): Float
+}
+
+class PrediccionMlOrm {
+  - id: BigInt
+  - modelo_ml_id: BigInt
+  - fuente_agua_id: BigInt
+  - fecha_objetivo: Date
+  - volumen_predicho_l: Numeric(14,4)
+  - confianza_modelo: Numeric(5,2)
+  + calcularDesviacion(real: Float): Float
+  + getByFecha(fecha: Date): PrediccionMlOrm
+}
+
+class InvernaderoOrm {
+  - id: BigInt
+  - codigo: String(30)
+  - area_m2: Numeric(10,2)
+  - prioridad_riego: SmallInt
+  + getEstadoActual(): Json
+}
+
+class DecisionRiegoOrm {
+  - id: BigInt
+  - modo_riego_id: BigInt
+  - estado_valvula_id: BigInt
+  - ejecutado_en: DateTime
+  + ejecutarActuadorEdge(): Boolean
+  + revertirDecision(): Void
+}
+
+class MetricasDecisionOrm {
+  - id: BigInt
+  - decision_riego_id: BigInt
+  - volumen_disponible_l: Numeric(14,4)
+  - demanda_estimada_l: Numeric(14,4)
+  - volumen_aplicado_l: Numeric(14,4)
+  + calcularEficiencia(): Float
+}
+
+' Relaciones de Bajo Nivel (Asociación, Agregación)
+DispositivoOrm "1" -- "0..*" SensorOrm : posee >
+SensorOrm "1" -- "0..*" LecturaSensorOrm : genera >
+
+ModeloMlOrm "1" -- "0..*" PrediccionMlOrm : emite >
+LecturaSensorOrm "0..*" ..> ModeloMlOrm : <<usa_para_entrenamiento>>
+
+DecisionRiegoOrm "1" -- "1" MetricasDecisionOrm : detalla >
+DecisionRiegoOrm "0..*" -- "1" InvernaderoOrm : aplica_a >
+@enduml

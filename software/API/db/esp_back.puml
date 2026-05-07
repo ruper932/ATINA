@@ -1,0 +1,41 @@
+@startuml
+skinparam maxMessageSize 100
+skinparam shadowing false
+skinparam sequence {
+  LifeLineBackgroundColor LightBlue
+  ParticipantBackgroundColor White
+  ParticipantBorderColor DarkBlue
+}
+
+participant "Sensor (BME680/\nCaudalímetro)" as sensor
+participant "Nodo IoT\n(ESP32)" as esp32
+participant "Servidor MCP\n(FastMCP)" as mcp
+participant "Backend\n(FastAPI)" as backend
+database "Base de Datos\n(PostgreSQL)" as db
+
+esp32 -> sensor : Iniciar lectura de pines
+activate esp32
+activate sensor
+sensor --> esp32 : Retorna T°, Presión, Caudal (Raw)
+deactivate sensor
+
+esp32 -> esp32 : Formatear datos JSON
+esp32 -> mcp : Transmitir payload (Protocolo MCP)
+activate mcp
+
+mcp -> backend : Petición HTTP POST /api/lecturas
+activate backend
+
+backend -> backend : Validar schema Pydantic
+backend -> db : INSERT lecturas_sensor
+activate db
+db --> backend : Confirmación (ID registro)
+deactivate db
+
+backend --> mcp : 201 Created (Éxito)
+deactivate backend
+
+mcp --> esp32 : ACK Sincronización
+deactivate mcp
+deactivate esp32
+@enduml
