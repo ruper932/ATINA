@@ -1,5 +1,7 @@
+#app/models/reportes.py
 from datetime import date, datetime
 from decimal import Decimal
+from sqlalchemy import BigInteger
 
 import sqlalchemy as sa
 from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, Text, CheckConstraint, func
@@ -30,6 +32,11 @@ class SincronizacionMCP(Base):
     estado_sincronizacion_id: Mapped[int] = mapped_column(
         ForeignKey("estados_sincronizacion.id", ondelete="RESTRICT"),
         nullable=False,
+    )
+    dispositivo_id: Mapped[int | None] = mapped_column(
+        BigInteger, 
+        ForeignKey("dispositivos.id", ondelete="SET NULL"),
+        nullable=True
     )
     origen: Mapped[str] = mapped_column(String(50), nullable=False)
     destino: Mapped[str] = mapped_column(String(50), nullable=False)

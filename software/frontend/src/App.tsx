@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 
+
 import WelcomeScreen from '@/pages/WelcomeScreen'
 import RegisterScreen from '@/pages/RegisterScreen'
 import LoginScreen from '@/pages/LoginScreen'
@@ -13,6 +14,9 @@ import UbicacionesPage from '@/pages/dashboard/UbicacionesPage'
 import DispositivosPage from '@/pages/dashboard/DispositivosPage'
 import SensoresPage from '@/pages/dashboard/SensoresPage'
 import { ReportesVistasPage } from '@/pages/dashboard/ReportesVistasPage' 
+import FuentesAguaPage from './pages/dashboard/FuentesAguaPage'
+import FuenteAtrapanieblaPage from './pages/dashboard/FuenteAtrapanieblaPage'
+import PerfilPage from '@/pages/dashboard/PerfilPage'
 
 import { ThemeProvider } from '@/components/theme-provider'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
@@ -137,9 +141,40 @@ export default function App() {
                         <ReportesVistasPage />
                       </DashboardLayout>
                     </RoleRoute>
+                    
+                  }
+                />
+                <Route
+                  path="/dashboard/fuentes-agua"
+                  element={
+                    <RoleRoute allowedRoles={['admin', 'tecnico', 'docente']}>
+                      <DashboardLayout>
+                        <FuentesAguaPage />
+                      </DashboardLayout>
+                    </RoleRoute>
                   }
                 />
 
+                <Route
+                  path="/dashboard/fuentes-agua-atrapanieblas"
+                  element={
+                    <RoleRoute allowedRoles={['admin', 'tecnico', 'docente']}>
+                      <DashboardLayout>
+                        <FuenteAtrapanieblaPage />
+                      </DashboardLayout>
+                    </RoleRoute>
+                  }
+                />
+                <Route
+                  path="/dashboard/perfil"
+                  element={
+                    <RoleRoute allowedRoles={['admin', 'tecnico', 'docente', 'estudiante', 'invitado']}>
+                      <DashboardLayout>
+                        <PerfilPage />
+                      </DashboardLayout>
+                    </RoleRoute>
+                  }
+                />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </div>

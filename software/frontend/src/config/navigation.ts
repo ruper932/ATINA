@@ -9,9 +9,11 @@ import {
   Leaf,
   MapPin,
   Droplets,
-  Activity, // <- Nuevo para sensores
+  Activity,
+  Link2,
 } from 'lucide-react'
 import type { UserRole } from '@/context/AuthContext'
+import { UserCircle2 } from 'lucide-react'
 
 export type NavItem = {
   title: string
@@ -21,6 +23,12 @@ export type NavItem = {
 }
 
 export const dashboardNavItems: NavItem[] = [
+  {
+    title: 'Perfil',
+    to: '/dashboard/perfil',
+    icon: UserCircle2,
+    allowedRoles: ['admin', 'docente', 'tecnico', 'estudiante', 'invitado'],
+  },
   {
     title: 'Resumen',
     to: '/dashboard',
@@ -45,20 +53,18 @@ export const dashboardNavItems: NavItem[] = [
     icon: Cpu,
     allowedRoles: ['admin', 'tecnico'],
   },
-  // --- NUEVO ---
   {
     title: 'Sensores',
     to: '/dashboard/sensores',
     icon: Activity,
     allowedRoles: ['admin', 'tecnico'],
-  },
-  // -------------
+  },/*
   {
     title: 'Captación',
     to: '/dashboard/captacion',
     icon: CloudRain,
     allowedRoles: ['admin', 'tecnico', 'docente'],
-  },
+  },*/
   {
     title: 'Ubicaciones',
     to: '/dashboard/ubicaciones',
@@ -74,13 +80,19 @@ export const dashboardNavItems: NavItem[] = [
   {
     title: 'Atrapanieblas',
     to: '/dashboard/atrapanieblas',
-    icon: CloudRain, 
+    icon: CloudRain,
     allowedRoles: ['admin', 'tecnico', 'docente'],
   },
   {
     title: 'Fuentes de Agua',
     to: '/dashboard/fuentes-agua',
     icon: Droplets,
+    allowedRoles: ['admin', 'tecnico', 'docente'],
+  },
+  {
+    title: 'Atrapaniebla - Fuente',
+    to: '/dashboard/fuentes-agua-atrapanieblas',
+    icon: Link2,
     allowedRoles: ['admin', 'tecnico', 'docente'],
   },
   {
@@ -94,5 +106,5 @@ export const dashboardNavItems: NavItem[] = [
     to: '/dashboard/configuracion',
     icon: Settings,
     allowedRoles: ['admin'],
-  }
+  },
 ]

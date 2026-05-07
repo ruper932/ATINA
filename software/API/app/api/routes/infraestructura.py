@@ -12,7 +12,11 @@ from app.schemas.infraestructura import (
     UbicacionCreate, UbicacionUpdate, UbicacionResponse,
     InvernaderoCreate, InvernaderoUpdate, InvernaderoResponse,
     AtrapanieblaCreate, AtrapanieblaUpdate, AtrapanieblaResponse,
-    FuenteAguaCreate, FuenteAguaUpdate, FuenteAguaResponse
+    FuenteAguaCreate,
+    FuenteAguaUpdate,
+    FuenteAguaResponse,
+    FuenteAguaAtrapanieblaCreate,
+    FuenteAguaAtrapanieblaResponse,
 )
 
 router = APIRouter()
@@ -272,61 +276,39 @@ async def delete_atrapaniebla(
         raise HTTPException(status_code=404, detail="Atrapaniebla no encontrado")
     return obj
 
-
-# ==========================================
-# FUENTES DE AGUA
-# ==========================================
-@router.post("/fuentes-agua", response_model=FuenteAguaResponse, status_code=status.HTTP_201_CREATED)
-async def create_fuente_agua(
-    obj_in: FuenteAguaCreate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return await crud.fuente_agua.create(db=db, obj_in=obj_in)
-
+# ===== FUENTES DE AGUA =====
 
 @router.get("/fuentes-agua", response_model=list[FuenteAguaResponse])
-async def read_fuentes_agua(
-    skip: int = 0,
-    limit: int = 100,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return await crud.fuente_agua.get_multi(db=db, skip=skip, limit=limit)
+def listar_fuentes_agua(db: Session = Depends(get_db)):
+    return crud.get_fuentes_agua(db)
+
+@router.get("/fuentes-agua/{fuente_id}", response_model=FuenteAguaResponse)
+def obtener_fuente_agua(fuente_id: int, db: Session = Depends(get_db)):
+    return crud.get_fuente_agua(db, fuente_id)
+
+@router.post("/fuentes-agua", response_model=FuenteAguaResponse)
+def crear_fuente_agua(fuente_in: FuenteAguaCreate, db: Session = Depends(get_db)):
+    return crud.create_fuente_agua(db, fuente_in)
+
+@router.put("/fuentes-agua/{fuente_id}", response_model=FuenteAguaResponse)
+def actualizar_fuente_agua(fuente_id: int, fuente_in: FuenteAguaUpdate, db: Session = Depends(get_db)):
+    return crud.update_fuente_agua(db, fuente_id, fuente_in)
+
+@router.delete("/fuentes-agua/{fuente_id}")
+def eliminar_fuente_agua(fuente_id: int, db: Session = Depends(get_db)):
+    return crud.delete_fuente_agua(db, fuente_id)
 
 
-@router.get("/fuentes-agua/{id}", response_model=FuenteAguaResponse)
-async def read_fuente_agua(
-    id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    obj = await crud.fuente_agua.get(db=db, id=id)
-    if not obj:
-        raise HTTPException(status_code=404, detail="Fuente de agua no encontrada")
-    return obj
+# ===== RELACIÓN FUENTE-ATRAPANIEBLA =====
 
+@router.get("/fuentes-agua-atrapanieblas", response_model=list[FuenteAguaAtrapanieblaResponse])
+def listar_relaciones_fuente_atrapaniebla(db: Session = Depends(get_db)):
+    return crud.get_relaciones_fuente_atrapaniebla(db)
 
-@router.put("/fuentes-agua/{id}", response_model=FuenteAguaResponse)
-async def update_fuente_agua(
-    id: int,
-    obj_in: FuenteAguaUpdate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    obj = await crud.fuente_agua.get(db=db, id=id)
-    if not obj:
-        raise HTTPException(status_code=404, detail="Fuente de agua no encontrada")
-    return await crud.fuente_agua.update(db=db, db_obj=obj, obj_in=obj_in)
+@router.post("/fuentes-agua-atrapanieblas", response_model=FuenteAguaAtrapanieblaResponse)
+def crear_relacion_fuente_atrapaniebla(relacion_in: FuenteAguaAtrapanieblaCreate, db: Session = Depends(get_db)):
+    return crud.create_relacion_fuente_atrapaniebla(db, relacion_in)
 
-
-@router.delete("/fuentes-agua/{id}", response_model=FuenteAguaResponse)
-async def delete_fuente_agua(
-    id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    obj = await crud.fuente_agua.remove(db=db, id=id)
-    if not obj:
-        raise HTTPException(status_code=404, detail="Fuente de agua no encontrada")
-    return obj
+@router.delete("/fuentes-agua-atrapanieblas/{relacion_id}")
+def eliminar_relacion_fuente_atrapaniebla(relacion_id: int, db: Session = Depends(get_db)):
+    return crud.delete_relacion_fuente_atrapaniebla(db, relacion_id)

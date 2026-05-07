@@ -20,6 +20,18 @@ from app.schemas.auth import (
     Verify2FARequest,
     SetupTOTPResponse
 )
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Body
+from app.schemas.auth import (
+    LoginResponse,
+    Verify2FARequest,
+    SetupTOTPResponse,
+    PerfilResponse,
+    PerfilUpdate,
+    PerfilPasswordUpdate,
+    MessageResponse,
+)
+from jose import JWTError
+
 
 router = APIRouter()
 
@@ -66,6 +78,33 @@ async def get_role_name(db: AsyncSession, rol_id: int | None) -> str:
     }
 
     return aliases.get(normalized, "invitado")
+
+async def get_current_user(
+    db: AsyncSession = Depends(get_db),
+    token: str = Depends(security.oauth2_scheme),
+) -> User:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="No se pudo validar las credenciales",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    try:
+        payload = security.verify_token(token)
+        user_id = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+    except Exception:
+        raise credentials_exception
+
+    user = await db.get(User, int(user_id))
+    if not user:
+        raise credentials_exception
+
+    return user
+
+
+
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register(
     username: str = Form(...),
@@ -259,3 +298,81 @@ async def enable_authy(user_id: int, code: str, db: AsyncSession = Depends(get_d
 @router.post("/logout")
 async def logout():
     return {"message": "Sesión cerrada. Por favor, elimina tu token en el cliente."}
+
+
+
+@router.get("/me", response_model=PerfilResponse)
+async def get_me(current_user: User = Depends(get_current_user)):
+    return PerfilResponse(
+        id=current_user.id,
+        email=current_user.email,
+        username=current_user.username,
+        is_active=current_user.is_active,
+        is_superuser=current_user.is_superuser,
+        rol_id=current_user.rol_id,
+        estado_usuario_id=current_user.estado_usuario_id,
+        is_totp_enabled=current_user.is_totp_enabled,
+        is_email_2fa_enabled=current_user.is_email_2fa_enabled,
+        ultimo_acceso=current_user.ultimo_acceso.isoformat() if current_user.ultimo_acceso else None,
+    )
+
+
+@router.put("/me", response_model=PerfilResponse)
+async def update_me(
+    payload: PerfilUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    query = select(User).where(
+        or_(User.email == payload.email, User.username == payload.username),
+        User.id != current_user.id,
+    )
+    result = await db.execute(query)
+    existing_user = result.scalar_one_or_none()
+
+    if existing_user:
+        if existing_user.email == payload.email:
+            raise HTTPException(status_code=400, detail="El email ya está en uso")
+        if existing_user.username == payload.username:
+            raise HTTPException(status_code=400, detail="El nombre de usuario ya está en uso")
+
+    current_user.email = payload.email.strip()
+    current_user.username = payload.username.strip()
+
+    await db.commit()
+    await db.refresh(current_user)
+
+    return PerfilResponse(
+        id=current_user.id,
+        email=current_user.email,
+        username=current_user.username,
+        is_active=current_user.is_active,
+        is_superuser=current_user.is_superuser,
+        rol_id=current_user.rol_id,
+        estado_usuario_id=current_user.estado_usuario_id,
+        is_totp_enabled=current_user.is_totp_enabled,
+        is_email_2fa_enabled=current_user.is_email_2fa_enabled,
+        ultimo_acceso=current_user.ultimo_acceso.isoformat() if current_user.ultimo_acceso else None,
+    )
+
+
+@router.put("/me/password", response_model=MessageResponse)
+async def update_my_password(
+    payload: PerfilPasswordUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not security.verify_password(payload.password_actual, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="La contraseña actual es incorrecta")
+
+    if payload.password_actual == payload.password_nueva:
+        raise HTTPException(
+            status_code=400,
+            detail="La nueva contraseña no puede ser igual a la actual",
+        )
+
+    current_user.hashed_password = security.get_password_hash(payload.password_nueva)
+
+    await db.commit()
+
+    return MessageResponse(message="Contraseña actualizada correctamente")

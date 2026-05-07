@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 # === SINCRONIZACIONES MCP ===
 class SincronizacionMCPBase(BaseModel):
     estado_sincronizacion_id: int
+    dispositivo_id: int | None = None
     origen: str = Field(..., max_length=50)
     destino: str = Field(..., max_length=50)
     tipo_recurso: str = Field(..., max_length=50)

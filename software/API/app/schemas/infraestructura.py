@@ -97,3 +97,16 @@ class FuenteAguaResponse(FuenteAguaBase):
     id: int
     creado_en: datetime
     model_config = ConfigDict(from_attributes=True)
+
+
+# === RELACIÓN FUENTE DE AGUA - ATRAPANIEBLA ===
+class FuenteAguaAtrapanieblaBase(BaseModel):
+    fuente_agua_id: int
+    atrapaniebla_id: int
+
+class FuenteAguaAtrapanieblaCreate(FuenteAguaAtrapanieblaBase):
+    pass
+
+class FuenteAguaAtrapanieblaResponse(FuenteAguaAtrapanieblaBase):
+    id: int
+    model_config = ConfigDict(from_attributes=True)

@@ -3,11 +3,13 @@ from typing import Any
 from jose import jwt
 import bcrypt
 import pyotp
+from fastapi.security import OAuth2PasswordBearer
 
 SECRET_KEY = "super_secreto_super_seguro_cambiar_en_produccion"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 horas
 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     password_bytes = plain_password.encode("utf-8")
