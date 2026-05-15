@@ -316,7 +316,8 @@ def upgrade() -> None:
         sa.Column("valor_anterior", sa.Numeric(precision=14, scale=4), nullable=True),
         sa.Column("valor_nuevo", sa.Numeric(precision=14, scale=4), nullable=False),
         sa.Column("motivo", sa.Text(), nullable=True),
-        sa.Column("usuario_id", sa.Integer(), nullable=True),
+        # CAMBIO: usuario_id (Integer) -> usuario_ci (String)
+        sa.Column("usuario_ci", sa.String(length=20), nullable=True),
         sa.Column(
             "fecha_calibracion",
             sa.DateTime(timezone=True),
@@ -328,9 +329,10 @@ def upgrade() -> None:
             ["sensores.id"],
             ondelete="CASCADE",
         ),
+        # CAMBIO: referencia de users.id -> users.ci usando usuario_ci
         sa.ForeignKeyConstraint(
-            ["usuario_id"],
-            ["users.id"],
+            ["usuario_ci"],
+            ["users.ci"],
             ondelete="SET NULL",
         ),
         sa.PrimaryKeyConstraint("id"),

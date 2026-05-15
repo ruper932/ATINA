@@ -9,7 +9,7 @@ from app.core.db import Base
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    ci: Mapped[str] = mapped_column(String(20), primary_key=True, index=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     username: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -43,10 +43,11 @@ class User(Base):
         onupdate=func.now(),
         nullable=False,
     )
+
     # 2FA Authy (TOTP)
     totp_secret: Mapped[str | None] = mapped_column(String(32), nullable=True)
     is_totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    
+
     # 2FA Correo
     is_email_2fa_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     email_code: Mapped[str | None] = mapped_column(String(6), nullable=True)

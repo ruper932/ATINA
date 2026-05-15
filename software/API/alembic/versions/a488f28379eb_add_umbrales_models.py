@@ -9,10 +9,12 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
+
 revision: str = 'a488f28379eb'
 down_revision: Union[str, Sequence[str], None] = '9c8c01137e30'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
+
 
 def upgrade() -> None:
     op.create_table('ambitos_umbral',
@@ -36,9 +38,11 @@ def upgrade() -> None:
     sa.Column('valor', sa.Numeric(precision=14, scale=4), nullable=False),
     sa.Column('ambito_umbral_id', sa.Integer(), nullable=False),
     sa.Column('editable', sa.Boolean(), server_default=sa.text('true'), nullable=False),
-    sa.Column('actualizado_por', sa.Integer(), nullable=True),
+    # CAMBIO: actualizado_por (Integer) a actualizado_por_ci (String)
+    sa.Column('actualizado_por_ci', sa.String(length=20), nullable=True),
     sa.Column('actualizado_en', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.ForeignKeyConstraint(['actualizado_por'], ['users.id'], ondelete='SET NULL'),
+    # CAMBIO: llave foránea apunta a users.ci
+    sa.ForeignKeyConstraint(['actualizado_por_ci'], ['users.ci'], ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['ambito_umbral_id'], ['ambitos_umbral.id'], ondelete='RESTRICT'),
     sa.ForeignKeyConstraint(['parametro_umbral_id'], ['parametros_umbral.id'], ondelete='RESTRICT'),
     sa.PrimaryKeyConstraint('id')
@@ -61,6 +65,7 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('configuracion_umbral_id', 'sensor_id', name='uq_configuraciones_umbral_sensores')
     )
+
 
 def downgrade() -> None:
     op.drop_table('configuraciones_umbral_sensores')

@@ -9,6 +9,7 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
+
 revision: str = '99aa4214f755'
 down_revision: Union[str, Sequence[str], None] = 'a488f28379eb'
 branch_labels: Union[str, Sequence[str], None] = None
@@ -35,11 +36,13 @@ def upgrade() -> None:
         sa.Column('eficiencia_riego', sa.Numeric(precision=6, scale=2), nullable=True),
         sa.Column('total_alertas', sa.Integer(), server_default=sa.text('0'), nullable=False),
         sa.Column('resumen', sa.Text(), nullable=True),
-        sa.Column('generado_por', sa.Integer(), nullable=True),
+        # CAMBIO: generado_por (Integer) a generado_por_ci (String)
+        sa.Column('generado_por_ci', sa.String(length=20), nullable=True),
         sa.Column('fecha_generacion', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         sa.CheckConstraint('periodo_fin >= periodo_inicio', name='chk_reportes_semanales_periodo'),
         sa.CheckConstraint('volumen_captado_l >= 0 AND volumen_predicho_l >= 0 AND total_alertas >= 0', name='chk_reportes_semanales_valores'),
-        sa.ForeignKeyConstraint(['generado_por'], ['users.id'], ondelete='SET NULL'),
+        # CAMBIO: Se actualiza ForeignKey para apuntar a users.ci
+        sa.ForeignKeyConstraint(['generado_por_ci'], ['users.ci'], ondelete='SET NULL'),
         sa.PrimaryKeyConstraint('id')
     )
 

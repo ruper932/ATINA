@@ -1,7 +1,7 @@
-# app/schemas/reportes.py
 from datetime import date, datetime
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
+
 
 # === SINCRONIZACIONES MCP ===
 class SincronizacionMCPBase(BaseModel):
@@ -14,7 +14,10 @@ class SincronizacionMCPBase(BaseModel):
     fecha_fin: datetime | None = None
     mensaje_resultado: str | None = None
 
-class SincronizacionMCPCreate(SincronizacionMCPBase): pass
+
+class SincronizacionMCPCreate(SincronizacionMCPBase):
+    pass
+
 
 class SincronizacionMCPUpdate(BaseModel):
     estado_sincronizacion_id: int | None = None
@@ -22,13 +25,14 @@ class SincronizacionMCPUpdate(BaseModel):
     fecha_fin: datetime | None = None
     mensaje_resultado: str | None = None
 
+
 class SincronizacionMCPResponse(SincronizacionMCPBase):
     id: int
     fecha_inicio: datetime
     model_config = ConfigDict(from_attributes=True)
 
-# === VISTAS PARA REPORTES ===
 
+# === VISTAS PARA REPORTES ===
 class VReporteLecturasSensorResponse(BaseModel):
     lectura_id: int
     sensor_codigo: str
@@ -36,6 +40,7 @@ class VReporteLecturasSensorResponse(BaseModel):
     lectura_valor: Decimal
     fecha_lectura: datetime
     model_config = ConfigDict(from_attributes=True)
+
 
 class VReporteAlertasInvernaderoResponse(BaseModel):
     alerta_id: int
@@ -45,6 +50,7 @@ class VReporteAlertasInvernaderoResponse(BaseModel):
     fecha_generacion: datetime
     model_config = ConfigDict(from_attributes=True)
 
+
 class VReporteInventarioDispositivosResponse(BaseModel):
     dispositivo_id: int
     codigo: str
@@ -53,6 +59,7 @@ class VReporteInventarioDispositivosResponse(BaseModel):
     estado_dispositivo_id: int
     model_config = ConfigDict(from_attributes=True)
 
+
 class VReporteRiegoEjecutadoResponse(BaseModel):
     decision_id: int
     invernadero_id: int
@@ -60,6 +67,7 @@ class VReporteRiegoEjecutadoResponse(BaseModel):
     inicio_evento: datetime
     duracion_segundos: int | None
     model_config = ConfigDict(from_attributes=True)
+
 
 class VReportePrediccionesAguaResponse(BaseModel):
     prediccion_id: int
@@ -75,11 +83,15 @@ class EstadoSincronizacionBase(BaseModel):
     nombre: str = Field(..., max_length=30)
     descripcion: str | None = None
 
-class EstadoSincronizacionCreate(EstadoSincronizacionBase): pass
+
+class EstadoSincronizacionCreate(EstadoSincronizacionBase):
+    pass
+
 
 class EstadoSincronizacionUpdate(BaseModel):
     nombre: str | None = Field(None, max_length=30)
     descripcion: str | None = None
+
 
 class EstadoSincronizacionResponse(EstadoSincronizacionBase):
     id: int
@@ -95,9 +107,12 @@ class ReporteSemanalBase(BaseModel):
     eficiencia_riego: Decimal | None = None
     total_alertas: int = Field(default=0, ge=0)
     resumen: str | None = None
-    generado_por: int | None = None
+    generado_por_ci: str | None = None
 
-class ReporteSemanalCreate(ReporteSemanalBase): pass
+
+class ReporteSemanalCreate(ReporteSemanalBase):
+    pass
+
 
 class ReporteSemanalUpdate(BaseModel):
     volumen_captado_l: Decimal | None = None
@@ -105,6 +120,7 @@ class ReporteSemanalUpdate(BaseModel):
     eficiencia_riego: Decimal | None = None
     total_alertas: int | None = None
     resumen: str | None = None
+
 
 class ReporteSemanalResponse(ReporteSemanalBase):
     id: int

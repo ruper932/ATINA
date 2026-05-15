@@ -1,16 +1,20 @@
-# app/schemas/usuarios.py
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
 
 # === ROLES ===
 class RolBase(BaseModel):
     nombre: str = Field(..., max_length=50)
     descripcion: str | None = None
 
-class RolCreate(RolBase): pass
+
+class RolCreate(RolBase):
+    pass
+
 
 class RolUpdate(RolBase):
     nombre: str | None = None
+
 
 class RolResponse(RolBase):
     id: int
@@ -22,10 +26,14 @@ class EstadoUsuarioBase(BaseModel):
     nombre: str = Field(..., max_length=30)
     descripcion: str | None = None
 
-class EstadoUsuarioCreate(EstadoUsuarioBase): pass
+
+class EstadoUsuarioCreate(EstadoUsuarioBase):
+    pass
+
 
 class EstadoUsuarioUpdate(EstadoUsuarioBase):
     nombre: str | None = None
+
 
 class EstadoUsuarioResponse(EstadoUsuarioBase):
     id: int
@@ -34,6 +42,7 @@ class EstadoUsuarioResponse(EstadoUsuarioBase):
 
 # === USUARIOS ===
 class UserBase(BaseModel):
+    ci: str = Field(..., max_length=20)
     email: EmailStr
     username: str = Field(..., max_length=100)
     is_active: bool = True
@@ -43,10 +52,13 @@ class UserBase(BaseModel):
     is_totp_enabled: bool = False
     is_email_2fa_enabled: bool = False
 
+
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
 
-class UserUpdate(UserBase):
+
+class UserUpdate(BaseModel):
+    ci: str | None = Field(None, max_length=20)
     email: EmailStr | None = None
     username: str | None = None
     password: str | None = Field(None, min_length=8)
@@ -57,8 +69,8 @@ class UserUpdate(UserBase):
     is_totp_enabled: bool | None = None
     is_email_2fa_enabled: bool | None = None
 
+
 class UserResponse(UserBase):
-    id: int
     ultimo_acceso: datetime | None = None
     created_at: datetime
     updated_at: datetime

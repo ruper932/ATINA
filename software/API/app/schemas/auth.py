@@ -1,18 +1,22 @@
-# app/schemas/auth.py
-from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
+
+from pydantic import BaseModel, EmailStr, Field
 
 
 class UserRegister(BaseModel):
+    ci: str
     email: EmailStr
     username: str
-    nombres: str  # Del modelo SQL original
-    apellidos: str # Del modelo SQL original
+    nombres: str
+    apellido_paterno: str
+    apellido_materno: str | None = None
     password: str
+
 
 class LoginRequest(BaseModel):
     email_or_username: str
     password: str
+
 
 class LoginResponse(BaseModel):
     access_token: str | None = None
@@ -21,10 +25,12 @@ class LoginResponse(BaseModel):
     temp_token: str | None = None
     message: str | None = None
 
+
 class Verify2FARequest(BaseModel):
     temp_token: str
     code: str
-    method: str  # "totp" (Authy) o "email"
+    method: str
+
 
 class SetupTOTPResponse(BaseModel):
     secret: str
@@ -32,7 +38,7 @@ class SetupTOTPResponse(BaseModel):
 
 
 class PerfilResponse(BaseModel):
-    id: int
+    ci: str
     email: EmailStr
     username: str
     is_active: bool

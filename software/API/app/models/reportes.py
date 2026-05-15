@@ -1,4 +1,3 @@
-#app/models/reportes.py
 from datetime import date, datetime
 from decimal import Decimal
 from sqlalchemy import BigInteger
@@ -34,7 +33,7 @@ class SincronizacionMCP(Base):
         nullable=False,
     )
     dispositivo_id: Mapped[int | None] = mapped_column(
-        BigInteger, 
+        BigInteger,
         ForeignKey("dispositivos.id", ondelete="SET NULL"),
         nullable=True
     )
@@ -92,8 +91,9 @@ class ReporteSemanal(Base):
         server_default=sa.text("0"),
     )
     resumen: Mapped[str | None] = mapped_column(Text, nullable=True)
-    generado_por: Mapped[int | None] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL"),
+    generado_por_ci: Mapped[str | None] = mapped_column(
+        String(20),
+        ForeignKey("users.ci", ondelete="SET NULL"),
         nullable=True,
     )
     fecha_generacion: Mapped[datetime] = mapped_column(
@@ -102,50 +102,55 @@ class ReporteSemanal(Base):
         server_default=func.now(),
     )
 
+
 class VistaReporteLecturasSensor(Base):
     __tablename__ = "vista_reporte_lecturas_sensor"
-    __mapper_args__ = {"primary_key": ["lectura_id"]}  # SQLAlchemy requiere una PK
-    
+    __mapper_args__ = {"primary_key": ["lectura_id"]}
+
     lectura_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     sensor_codigo: Mapped[str] = mapped_column(String(50))
     sensor_nombre: Mapped[str] = mapped_column(String(100))
     lectura_valor: Mapped[Decimal] = mapped_column(Numeric(14, 4))
     fecha_lectura: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
+
 class VistaReporteAlertasInvernadero(Base):
     __tablename__ = "vista_reporte_alertas_invernadero"
     __mapper_args__ = {"primary_key": ["alerta_id"]}
-    
+
     alerta_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     invernadero_id: Mapped[int] = mapped_column(Integer)
     tipo_alerta: Mapped[str] = mapped_column(String(50))
     mensaje: Mapped[str] = mapped_column(Text)
     fecha_generacion: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
+
 class VistaReporteInventarioDispositivos(Base):
     __tablename__ = "vista_reporte_inventario_dispositivos"
     __mapper_args__ = {"primary_key": ["dispositivo_id"]}
-    
+
     dispositivo_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     codigo: Mapped[str] = mapped_column(String(50))
     nombre: Mapped[str] = mapped_column(String(100))
     tipo_dispositivo: Mapped[str] = mapped_column(String(50))
     estado_dispositivo_id: Mapped[int] = mapped_column(Integer)
 
+
 class VistaReporteRiegoEjecutado(Base):
     __tablename__ = "vista_reporte_riego_ejecutado"
     __mapper_args__ = {"primary_key": ["decision_id"]}
-    
+
     decision_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     invernadero_id: Mapped[int] = mapped_column(Integer)
     texto_decision: Mapped[str] = mapped_column(Text)
     inicio_evento: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     duracion_segundos: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+
 class VistaReportePrediccionesAgua(Base):
     __tablename__ = "vista_reporte_predicciones_agua"
     __mapper_args__ = {"primary_key": ["prediccion_id"]}
-    
+
     prediccion_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     fuente_agua: Mapped[str] = mapped_column(String(100))
     modelo_usado: Mapped[str] = mapped_column(String(100))

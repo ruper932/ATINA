@@ -1,26 +1,20 @@
-# app/api/routes/auth.py
 import random
 import string
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from app.models.catalogos import Rol
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from fastapi.security import OAuth2PasswordRequestForm
+from jose import JWTError
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.catalogos import Rol
 from app.core.db import get_db
 from app.core import security
 from app.models.user import User
 from app.models.perfil import Perfil
-from app.schemas.auth import (
-    LoginResponse,
-    Verify2FARequest,
-    SetupTOTPResponse
-)
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Body
 from app.schemas.auth import (
     LoginResponse,
     Verify2FARequest,
@@ -30,7 +24,6 @@ from app.schemas.auth import (
     PerfilPasswordUpdate,
     MessageResponse,
 )
-from jose import JWTError
 
 
 router = APIRouter()
@@ -42,9 +35,9 @@ ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
 MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5 MB
 
 
-# Simulador de envío de correo
 async def send_2fa_email(email: str, code: str):
     print(f"📧 SIMULACIÓN: Enviando código {code} al correo {email}")
+
 
 def map_role_name(rol_id: int | None) -> str:
     role_map = {
@@ -79,6 +72,7 @@ async def get_role_name(db: AsyncSession, rol_id: int | None) -> str:
 
     return aliases.get(normalized, "invitado")
 
+
 async def get_current_user(
     db: AsyncSession = Depends(get_db),
     token: str = Depends(security.oauth2_scheme),
@@ -91,38 +85,39 @@ async def get_current_user(
 
     try:
         payload = security.verify_token(token)
-        user_id = payload.get("sub")
-        if user_id is None:
+        user_ci = payload.get("sub")
+        if user_ci is None:
             raise credentials_exception
     except Exception:
         raise credentials_exception
 
-    user = await db.get(User, int(user_id))
+    user = await db.get(User, user_ci)
     if not user:
         raise credentials_exception
 
     return user
 
 
-
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register(
+    ci: str = Form(...),
     username: str = Form(...),
     email: str = Form(...),
     password: str = Form(...),
     nombres: str = Form(...),
-    apellidos: str = Form(...),
+    apellido_paterno: str = Form(...),
+    apellido_materno: str | None = Form(None),
     telefono: str | None = Form(None),
     bio: str | None = Form(None),
     foto: UploadFile | None = File(None),
     db: AsyncSession = Depends(get_db),
 ):
     query = select(User).where(
-        or_(User.email == email, User.username == username)
+        or_(User.email == email, User.username == username, User.ci == ci)
     )
     result = await db.execute(query)
     if result.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="El email o usuario ya existe")
+        raise HTTPException(status_code=400, detail="El CI, email o usuario ya existe")
 
     foto_url = None
     file_path = None
@@ -153,8 +148,9 @@ async def register(
 
     try:
         new_user = User(
-            email=email,
-            username=username,
+            ci=ci.strip(),
+            email=email.strip(),
+            username=username.strip(),
             hashed_password=security.get_password_hash(password),
             rol_id=5,
             estado_usuario_id=1,
@@ -163,9 +159,10 @@ async def register(
         await db.flush()
 
         new_perfil = Perfil(
-            user_id=new_user.id,
+            user_ci=new_user.ci,
             nombres=nombres.strip(),
-            apellidos=apellidos.strip(),
+            apellido_paterno=apellido_paterno.strip(),
+            apellido_materno=apellido_materno.strip() if apellido_materno and apellido_materno.strip() else None,
             telefono=telefono.strip() if telefono and telefono.strip() else None,
             cargo="Invitado",
             foto_url=foto_url,
@@ -208,7 +205,7 @@ async def login(
 
     if user.is_totp_enabled or user.is_email_2fa_enabled:
         temp_token = security.create_access_token(
-            user.id,
+            user.ci,
             is_partial=True,
             extra_claims={"role": role_name}
         )
@@ -230,21 +227,25 @@ async def login(
     await db.commit()
 
     access_token = security.create_access_token(
-        user.id,
+        user.ci,
         extra_claims={"role": role_name}
     )
     return LoginResponse(access_token=access_token, token_type="bearer")
+
+
 @router.post("/login/verify-2fa", response_model=LoginResponse)
 async def verify_2fa(req: Verify2FARequest, db: AsyncSession = Depends(get_db)):
     try:
         payload = security.verify_token(req.temp_token)
         if payload.get("type") != "partial":
             raise ValueError()
-        user_id = int(payload.get("sub"))
+        user_ci = payload.get("sub")
+        if user_ci is None:
+            raise ValueError()
     except Exception:
         raise HTTPException(status_code=401, detail="Token temporal inválido o expirado")
 
-    user = await db.get(User, user_id)
+    user = await db.get(User, user_ci)
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
@@ -267,17 +268,20 @@ async def verify_2fa(req: Verify2FARequest, db: AsyncSession = Depends(get_db)):
 
     return LoginResponse(
         access_token=security.create_access_token(
-            user.id,
+            user.ci,
             extra_claims={"role": role_name}
         ),
         token_type="bearer"
     )
 
-@router.post("/2fa/setup-authy", response_model=SetupTOTPResponse)
-async def setup_authy(user_id: int, db: AsyncSession = Depends(get_db)):
-    user = await db.get(User, user_id)
-    secret = security.generate_totp_secret()
 
+@router.post("/2fa/setup-authy", response_model=SetupTOTPResponse)
+async def setup_authy(user_ci: str, db: AsyncSession = Depends(get_db)):
+    user = await db.get(User, user_ci)
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    secret = security.generate_totp_secret()
     user.totp_secret = secret
     await db.commit()
 
@@ -286,12 +290,16 @@ async def setup_authy(user_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/2fa/enable-authy")
-async def enable_authy(user_id: int, code: str, db: AsyncSession = Depends(get_db)):
-    user = await db.get(User, user_id)
+async def enable_authy(user_ci: str, code: str, db: AsyncSession = Depends(get_db)):
+    user = await db.get(User, user_ci)
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
     if security.verify_totp(user.totp_secret, code):
         user.is_totp_enabled = True
         await db.commit()
         return {"message": "Authy 2FA activado correctamente"}
+
     raise HTTPException(status_code=400, detail="Código incorrecto")
 
 
@@ -300,11 +308,10 @@ async def logout():
     return {"message": "Sesión cerrada. Por favor, elimina tu token en el cliente."}
 
 
-
 @router.get("/me", response_model=PerfilResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
     return PerfilResponse(
-        id=current_user.id,
+        ci=current_user.ci,
         email=current_user.email,
         username=current_user.username,
         is_active=current_user.is_active,
@@ -325,7 +332,7 @@ async def update_me(
 ):
     query = select(User).where(
         or_(User.email == payload.email, User.username == payload.username),
-        User.id != current_user.id,
+        User.ci != current_user.ci,
     )
     result = await db.execute(query)
     existing_user = result.scalar_one_or_none()
@@ -343,7 +350,7 @@ async def update_me(
     await db.refresh(current_user)
 
     return PerfilResponse(
-        id=current_user.id,
+        ci=current_user.ci,
         email=current_user.email,
         username=current_user.username,
         is_active=current_user.is_active,

@@ -1,4 +1,3 @@
-# app/api/routes/usuarios.py
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -108,41 +107,41 @@ async def read_users(
     return await crud.user.get_multi(db=db, skip=skip, limit=limit)
 
 
-@router.get("/{id}", response_model=UserResponse)
+@router.get("/{ci}", response_model=UserResponse)
 async def read_user(
-    id: int,
+    ci: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_superuser)
 ):
-    obj = await crud.user.get(db=db, id=id)
+    obj = await crud.user.get(db=db, id=ci)
     if not obj:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     return obj
 
 
-@router.put("/{id}", response_model=UserResponse)
+@router.put("/{ci}", response_model=UserResponse)
 async def update_user(
-    id: int,
+    ci: str,
     obj_in: UserUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_superuser)
 ):
-    obj = await crud.user.get(db=db, id=id)
+    obj = await crud.user.get(db=db, id=ci)
     if not obj:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     return await crud.user.update(db=db, db_obj=obj, obj_in=obj_in)
 
 
-@router.delete("/{id}", response_model=UserResponse)
+@router.delete("/{ci}", response_model=UserResponse)
 async def delete_user(
-    id: int,
+    ci: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_superuser)
 ):
-    if id == current_user.id:
+    if ci == current_user.ci:
         raise HTTPException(status_code=400, detail="No puedes eliminar tu propio usuario")
 
-    obj = await crud.user.remove(db=db, id=id)
+    obj = await crud.user.remove(db=db, id=ci)
     if not obj:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     return obj
