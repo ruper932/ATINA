@@ -1,5 +1,5 @@
 export type UserResponse = {
-  id: number
+  ci: string
   email: string
   username: string
   is_active: boolean
@@ -14,6 +14,7 @@ export type UserResponse = {
 }
 
 export type UserCreatePayload = {
+  ci: string
   email: string
   username: string
   password: string
@@ -52,9 +53,9 @@ export type RolUpdatePayload = {
   nombre?: string
   descripcion?: string | null
 }
+
 export type EstadoUsuarioResponse = {
   id: number
   nombre: string
   descripcion: string | null
 }
-

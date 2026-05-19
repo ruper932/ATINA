@@ -1,4 +1,4 @@
-import { createContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
 import { jwtDecode } from 'jwt-decode'
 
 export type UserRole =
@@ -7,7 +7,6 @@ export type UserRole =
   | 'tecnico'
   | 'estudiante'
   | 'invitado'
-
 
 type TokenPayload = {
   sub: string
@@ -31,6 +30,12 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+function isTokenExpired(decoded: TokenPayload) {
+  if (!decoded.exp) return false
+  const nowInSeconds = Math.floor(Date.now() / 1000)
+  return decoded.exp <= nowInSeconds
+}
+
 function getInitialAuthState(): AuthState {
   const savedToken = localStorage.getItem('access_token')
 
@@ -40,6 +45,11 @@ function getInitialAuthState(): AuthState {
 
   try {
     const decoded = jwtDecode<TokenPayload>(savedToken)
+
+    if (isTokenExpired(decoded) || decoded.type === 'partial') {
+      localStorage.removeItem('access_token')
+      return { token: null, role: null }
+    }
 
     return {
       token: savedToken,
@@ -54,9 +64,19 @@ function getInitialAuthState(): AuthState {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [auth, setAuthState] = useState<AuthState>(getInitialAuthState)
 
-  const setAuth = (token: string) => {
+  const setAuth = useCallback((token: string) => {
     try {
       const decoded = jwtDecode<TokenPayload>(token)
+
+      if (isTokenExpired(decoded) || decoded.type === 'partial') {
+        localStorage.removeItem('access_token')
+        setAuthState({
+          token: null,
+          role: null,
+        })
+        return
+      }
+
       localStorage.setItem('access_token', token)
 
       setAuthState({
@@ -70,16 +90,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role: null,
       })
     }
-  }
+  }, [])
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('access_token')
     setAuthState({
       token: null,
       role: null,
     })
     window.location.href = '/login'
-  }
+  }, [])
+
+  useEffect(() => {
+    const handleUnauthorized = (event: Event) => {
+      const customEvent = event as CustomEvent<{ url?: string; message?: string }>
+      const url = customEvent.detail?.url ?? ''
+
+      const excludedPaths = [
+        '/auth/login',
+        '/auth/login/verify-2fa',
+        '/auth/register',
+        '/auth/refresh',
+      ]
+
+      const shouldIgnore = excludedPaths.some((path) => url.includes(path))
+
+      if (shouldIgnore) return
+
+      logout()
+    }
+
+    window.addEventListener('api:unauthorized', handleUnauthorized)
+    return () => {
+      window.removeEventListener('api:unauthorized', handleUnauthorized)
+    }
+  }, [logout])
 
   const value = useMemo(
     () => ({
@@ -89,7 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAuth,
       logout,
     }),
-    [auth]
+    [auth, setAuth, logout]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

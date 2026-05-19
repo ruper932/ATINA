@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { Pencil, Trash2, Plus, RefreshCw } from 'lucide-react'
@@ -41,6 +41,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox'
 
 type FormState = {
+  ci: string
   email: string
   username: string
   password: string
@@ -53,6 +54,7 @@ type FormState = {
 }
 
 const initialForm: FormState = {
+  ci: '',
   email: '',
   username: '',
   password: '',
@@ -64,6 +66,8 @@ const initialForm: FormState = {
   is_email_2fa_enabled: false,
 }
 
+const PAGE_SIZE = 10
+
 export default function UsuariosPage() {
   const queryClient = useQueryClient()
 
@@ -72,6 +76,7 @@ export default function UsuariosPage() {
   const [form, setForm] = useState<FormState>(initialForm)
   const [search, setSearch] = useState('')
   const [apiError, setApiError] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
 
   const usersQuery = useQuery({
     queryKey: ['users'],
@@ -98,8 +103,8 @@ export default function UsuariosPage() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: number; payload: UserUpdatePayload }) =>
-      usersService.update(id, payload),
+    mutationFn: ({ ci, payload }: { ci: string; payload: UserUpdatePayload }) =>
+      usersService.update(ci, payload),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['users'] })
       resetFormAndClose()
@@ -108,7 +113,7 @@ export default function UsuariosPage() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => usersService.remove(id),
+    mutationFn: (ci: string) => usersService.remove(ci),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['users'] })
     },
@@ -141,6 +146,7 @@ export default function UsuariosPage() {
   function openEditModal(user: UserResponse) {
     setEditingUser(user)
     setForm({
+      ci: user.ci,
       email: user.email,
       username: user.username,
       password: '',
@@ -159,7 +165,7 @@ export default function UsuariosPage() {
     e.preventDefault()
     setApiError(null)
 
-    if (!form.email || !form.username || !form.rol_id || !form.estado_usuario_id) {
+    if (!form.ci || !form.email || !form.username || !form.rol_id || !form.estado_usuario_id) {
       setApiError('Completa todos los campos obligatorios.')
       return
     }
@@ -185,11 +191,12 @@ export default function UsuariosPage() {
         payload.password = form.password
       }
 
-      updateMutation.mutate({ id: editingUser.id, payload })
+      updateMutation.mutate({ ci: editingUser.ci, payload })
       return
     }
 
     const payload: UserCreatePayload = {
+      ci: form.ci,
       email: form.email,
       username: form.username,
       password: form.password,
@@ -214,9 +221,20 @@ export default function UsuariosPage() {
       (user) =>
         user.username.toLowerCase().includes(term) ||
         user.email.toLowerCase().includes(term) ||
-        String(user.id).includes(term)
+        user.ci.toLowerCase().includes(term)
     )
   }, [usersQuery.data, search])
+
+  useEffect(() => {
+    setPage(1)
+  }, [search])
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE))
+
+  const paginatedUsers = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE
+    return filteredUsers.slice(start, start + PAGE_SIZE)
+  }, [filteredUsers, page])
 
   const rolesMap = useMemo(() => {
     const map = new Map<number, string>()
@@ -290,6 +308,17 @@ export default function UsuariosPage() {
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
+                    <Label htmlFor="ci">CI</Label>
+                    <Input
+                      id="ci"
+                      value={form.ci}
+                      onChange={(e) => setForm((prev) => ({ ...prev, ci: e.target.value }))}
+                      placeholder="1234567"
+                      disabled={!!editingUser}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
                     <Label htmlFor="email">Correo</Label>
                     <Input
                       id="email"
@@ -336,8 +365,8 @@ export default function UsuariosPage() {
                             rolesQuery.isLoading
                               ? 'Cargando roles...'
                               : rolesQuery.error
-                              ? 'No se pudieron cargar'
-                              : 'Selecciona un rol'
+                                ? 'No se pudieron cargar'
+                                : 'Selecciona un rol'
                           }
                         />
                       </SelectTrigger>
@@ -366,8 +395,8 @@ export default function UsuariosPage() {
                             estadosQuery.isLoading
                               ? 'Cargando estados...'
                               : estadosQuery.error
-                              ? 'No se pudieron cargar'
-                              : 'Selecciona un estado'
+                                ? 'No se pudieron cargar'
+                                : 'Selecciona un estado'
                           }
                         />
                       </SelectTrigger>
@@ -464,7 +493,7 @@ export default function UsuariosPage() {
 
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <Input
-          placeholder="Buscar por id, usuario o correo..."
+          placeholder="Buscar por CI, usuario o correo..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="md:max-w-sm"
@@ -475,7 +504,7 @@ export default function UsuariosPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ID</TableHead>
+              <TableHead>CI</TableHead>
               <TableHead>Usuario</TableHead>
               <TableHead>Correo</TableHead>
               <TableHead>Rol</TableHead>
@@ -492,14 +521,14 @@ export default function UsuariosPage() {
               <TableRow>
                 <TableCell colSpan={9}>Cargando usuarios...</TableCell>
               </TableRow>
-            ) : filteredUsers.length === 0 ? (
+            ) : paginatedUsers.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={9}>No se encontraron usuarios.</TableCell>
               </TableRow>
             ) : (
-              filteredUsers.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>{user.id}</TableCell>
+              paginatedUsers.map((user) => (
+                <TableRow key={user.ci}>
+                  <TableCell>{user.ci}</TableCell>
                   <TableCell>{user.username}</TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>
@@ -538,7 +567,7 @@ export default function UsuariosPage() {
                         size="icon"
                         onClick={() => {
                           if (window.confirm(`¿Eliminar al usuario ${user.username}?`)) {
-                            deleteMutation.mutate(user.id)
+                            deleteMutation.mutate(user.ci)
                           }
                         }}
                         disabled={deleteMutation.isPending}
@@ -552,6 +581,33 @@ export default function UsuariosPage() {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <p className="text-sm text-muted-foreground">
+          Mostrando {(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, filteredUsers.length)} de{' '}
+          {filteredUsers.length} usuarios
+        </p>
+
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+            disabled={page === 1}
+          >
+            Anterior
+          </Button>
+          <Button variant="outline" disabled>
+            Página {page} de {totalPages}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+            disabled={page === totalPages}
+          >
+            Siguiente
+          </Button>
+        </div>
       </div>
     </div>
   )

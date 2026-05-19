@@ -13,8 +13,8 @@ export const usersService = {
     return data
   },
 
-  getById: async (id: number): Promise<UserResponse> => {
-    const { data } = await apiClient.get(`/admin/${id}`)
+  getById: async (ci: string): Promise<UserResponse> => {
+    const { data } = await apiClient.get(`/admin/${ci}`)
     return data
   },
 
@@ -23,13 +23,13 @@ export const usersService = {
     return data
   },
 
-  update: async (id: number, payload: UserUpdatePayload): Promise<UserResponse> => {
-    const { data } = await apiClient.put(`/admin/${id}`, payload)
+  update: async (ci: string, payload: UserUpdatePayload): Promise<UserResponse> => {
+    const { data } = await apiClient.put(`/admin/${ci}`, payload)
     return data
   },
 
-  remove: async (id: number): Promise<UserResponse> => {
-    const { data } = await apiClient.delete(`/admin/${id}`)
+  remove: async (ci: string): Promise<UserResponse> => {
+    const { data } = await apiClient.delete(`/admin/${ci}`)
     return data
   },
 
