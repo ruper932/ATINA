@@ -20,7 +20,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # =========================================================
-    # 1. Catálogos básicos
+    # 1. Catálogos básicos (incluyendo los faltantes)
     # =========================================================
     op.execute("""
         INSERT INTO roles (nombre, descripcion)
@@ -153,9 +153,69 @@ def upgrade() -> None:
     """)
 
     # =========================================================
+    # Catálogos faltantes (estados sensores, actuadores, alertas, sincronización)
+    # =========================================================
+    op.execute("""
+        INSERT INTO estados_sensor (nombre, descripcion)
+        SELECT * FROM (VALUES 
+            ('activo', 'Sensor funcionando correctamente'),
+            ('inactivo', 'Sensor fuera de servicio'),
+            ('mantenimiento', 'Sensor en calibración o reparación')
+        ) AS v(nombre, descripcion)
+        WHERE NOT EXISTS (SELECT 1 FROM estados_sensor WHERE estados_sensor.nombre = v.nombre);
+    """)
+    op.execute("""
+        INSERT INTO estados_actuador (nombre, descripcion)
+        SELECT * FROM (VALUES 
+            ('operativo', 'Actuador funcionando'),
+            ('falla', 'Actuador con problemas'),
+            ('desconectado', 'Sin comunicación')
+        ) AS v(nombre, descripcion)
+        WHERE NOT EXISTS (SELECT 1 FROM estados_actuador WHERE estados_actuador.nombre = v.nombre);
+    """)
+    op.execute("""
+        INSERT INTO severidades_alerta (nombre, descripcion)
+        SELECT * FROM (VALUES 
+            ('baja', 'Informativa, no requiere acción inmediata'),
+            ('media', 'Requiere atención pronto'),
+            ('advertencia', 'Posible problema, monitorear'),
+            ('alta', 'Acción inmediata requerida'),
+            ('critica', 'Emergencia')
+        ) AS v(nombre, descripcion)
+        WHERE NOT EXISTS (SELECT 1 FROM severidades_alerta WHERE severidades_alerta.nombre = v.nombre);
+    """)
+    op.execute("""
+        INSERT INTO origenes_alerta (nombre, descripcion)
+        SELECT * FROM (VALUES 
+            ('sensor', 'Generada por lecturas de sensores'),
+            ('ml2', 'Generada por modelo ML2'),
+            ('sistema', 'Generada por el backend')
+        ) AS v(nombre, descripcion)
+        WHERE NOT EXISTS (SELECT 1 FROM origenes_alerta WHERE origenes_alerta.nombre = v.nombre);
+    """)
+    op.execute("""
+        INSERT INTO estados_alerta (nombre, descripcion)
+        SELECT * FROM (VALUES 
+            ('activa', 'Alerta no atendida'),
+            ('reconocida', 'Vista por un usuario'),
+            ('resuelta', 'Problema solucionado'),
+            ('desestimada', 'Falso positivo')
+        ) AS v(nombre, descripcion)
+        WHERE NOT EXISTS (SELECT 1 FROM estados_alerta WHERE estados_alerta.nombre = v.nombre);
+    """)
+    op.execute("""
+        INSERT INTO estados_sincronizacion (nombre, descripcion)
+        SELECT * FROM (VALUES 
+            ('exito', 'Sincronización completada correctamente'),
+            ('error', 'Falló la sincronización'),
+            ('en_proceso', 'Enviando datos')
+        ) AS v(nombre, descripcion)
+        WHERE NOT EXISTS (SELECT 1 FROM estados_sincronizacion WHERE estados_sincronizacion.nombre = v.nombre);
+    """)
+
+    # =========================================================
     # 2. Usuarios (con CI en lugar de ID y todas las columnas NOT NULL de 2FA)
     # =========================================================
-    # CAMBIO: Agregado campo 'ci' al insert de users
     op.execute("""
         INSERT INTO users (ci, username, email, hashed_password, is_active, is_superuser, rol_id, estado_usuario_id, is_totp_enabled, is_email_2fa_enabled)
         SELECT 
@@ -176,7 +236,6 @@ def upgrade() -> None:
     """)
 
     # Perfiles
-    # CAMBIO: user_ci en lugar de user_id, u.ci en lugar de u.id, y apellidos separados
     op.execute("""
         INSERT INTO perfiles (user_ci, nombres, apellido_paterno, apellido_materno, telefono, cargo)
         SELECT u.ci, 'Administrador', 'Sistema', NULL, '77777777', 'Admin Local'
@@ -442,7 +501,7 @@ def upgrade() -> None:
     """)
 
     # =========================================================
-    # 11. Alertas de ejemplo
+    # 11. Alertas de ejemplo (usando los catálogos insertados)
     # =========================================================
     op.execute("""
         INSERT INTO alertas (tipo_alerta, severidad_alerta_id, origen_alerta_id, mensaje, estado_alerta_id, fecha_generacion)
@@ -454,7 +513,7 @@ def upgrade() -> None:
             (SELECT id FROM estados_alerta WHERE nombre = 'activa'),
             now() - interval '2 days'
         WHERE NOT EXISTS (SELECT 1 FROM alertas WHERE mensaje LIKE '%debajo de 1 L/min%');
-    """);
+    """)
     op.execute("""
         INSERT INTO alertas (tipo_alerta, severidad_alerta_id, origen_alerta_id, mensaje, estado_alerta_id, fecha_generacion)
         SELECT 
@@ -465,7 +524,7 @@ def upgrade() -> None:
             (SELECT id FROM estados_alerta WHERE nombre = 'reconocida'),
             now() - interval '1 day'
         WHERE NOT EXISTS (SELECT 1 FROM alertas WHERE mensaje LIKE 'ML2 calculó%');
-    """);
+    """)
 
     # =========================================================
     # 12. Sincronizaciones MCP
@@ -480,12 +539,11 @@ def upgrade() -> None:
             now() - interval '1 day' + interval '15 minutes',
             'Sincronización completa diaria'
         WHERE NOT EXISTS (SELECT 1 FROM sincronizaciones_mcp WHERE origen = 'sensor_ESP_CAP_NORTE' AND fecha_inicio > now() - interval '2 days');
-    """);
+    """)
 
     # =========================================================
     # 13. Reporte semanal de ejemplo
     # =========================================================
-    # CAMBIO: generado_por actualizado a generado_por_ci, y subconsulta devuelve ci
     op.execute("""
         INSERT INTO reportes_semanales (periodo_inicio, periodo_fin, volumen_captado_l, volumen_predicho_l, eficiencia_riego, total_alertas, resumen, generado_por_ci)
         SELECT 
@@ -494,8 +552,9 @@ def upgrade() -> None:
             1250, 1380, 87.5, 3, 'Semana normal, caudal dentro de lo esperado',
             (SELECT ci FROM users WHERE username = 'admin_cea')
         WHERE NOT EXISTS (SELECT 1 FROM reportes_semanales WHERE periodo_inicio = (now() - interval '7 days')::date);
-    """);
+    """)
 
 
 def downgrade() -> None:
+    # Nota: no se implementa downgrade para datos semilla, pero se puede añadir si se requiere.
     pass

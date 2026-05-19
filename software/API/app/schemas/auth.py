@@ -1,21 +1,7 @@
-from typing import Optional
+from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field
-
-
-class UserRegister(BaseModel):
-    ci: str
-    email: EmailStr
-    username: str
-    nombres: str
-    apellido_paterno: str
-    apellido_materno: str | None = None
-    password: str
-
-
-class LoginRequest(BaseModel):
-    email_or_username: str
-    password: str
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class LoginResponse(BaseModel):
@@ -23,13 +9,13 @@ class LoginResponse(BaseModel):
     token_type: str | None = None
     requires_2fa: bool = False
     temp_token: str | None = None
+    method: Literal["totp", "email"] | None = None
     message: str | None = None
-
 
 class Verify2FARequest(BaseModel):
     temp_token: str
-    code: str
-    method: str
+    code: str = Field(..., min_length=4, max_length=10)
+    method: Literal["totp", "email"]
 
 
 class SetupTOTPResponse(BaseModel):
@@ -37,25 +23,37 @@ class SetupTOTPResponse(BaseModel):
     uri: str
 
 
+class DisableTOTPRequest(BaseModel):
+    password: str = Field(..., min_length=8)
+    code: str = Field(..., min_length=4, max_length=10)
+
+
+class RefreshTokenRequest(BaseModel):
+    token: str
+
+
 class PerfilResponse(BaseModel):
     ci: str
-    email: EmailStr
+    email: str
     username: str
     is_active: bool
     is_superuser: bool
-    rol_id: Optional[int] = None
-    estado_usuario_id: Optional[int] = None
-    is_totp_enabled: bool = False
-    is_email_2fa_enabled: bool = False
-    ultimo_acceso: Optional[str] = None
+    rol_id: int | None = None
+    rol_nombre: str | None = None
+    estado_usuario_id: int | None = None
+    estado_usuario_nombre: str | None = None
+    ultimo_acceso: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+    is_totp_enabled: bool
+    is_email_2fa_enabled: bool
 
-    class Config:
-        from_attributes = True
-
+    model_config = ConfigDict(from_attributes=True)
 
 class PerfilUpdate(BaseModel):
     email: EmailStr
     username: str = Field(..., min_length=3, max_length=100)
+    password_actual: str = Field(..., min_length=8)
 
 
 class PerfilPasswordUpdate(BaseModel):

@@ -20,6 +20,42 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # =========================================================
+    # 0. Asegurar catálogos necesarios para esta migración
+    # =========================================================
+    op.execute("""
+        INSERT INTO tipos_actuador (nombre, descripcion)
+        SELECT 'Válvula solenoide', 'Actuador para control de flujo de agua'
+        WHERE NOT EXISTS (SELECT 1 FROM tipos_actuador WHERE nombre = 'Válvula solenoide');
+    """)
+    # Aseguramos que exista el estado 'activo' en estados_actuador (aunque en seed_data_inicial se crearon 'operativo', 'falla', 'desconectado')
+    op.execute("""
+        INSERT INTO estados_actuador (nombre, descripcion)
+        SELECT 'activo', 'Actuador funcionando correctamente'
+        WHERE NOT EXISTS (SELECT 1 FROM estados_actuador WHERE nombre = 'activo');
+    """)
+    # Aseguramos que existan los ámbitos de umbral necesarios
+    op.execute("""
+        INSERT INTO ambitos_umbral (nombre, descripcion)
+        SELECT 'global', 'Configuración aplicable a todo el sistema'
+        WHERE NOT EXISTS (SELECT 1 FROM ambitos_umbral WHERE nombre = 'global');
+    """)
+    op.execute("""
+        INSERT INTO ambitos_umbral (nombre, descripcion)
+        SELECT 'invernadero', 'Configuración específica por invernadero'
+        WHERE NOT EXISTS (SELECT 1 FROM ambitos_umbral WHERE nombre = 'invernadero');
+    """)
+    op.execute("""
+        INSERT INTO tipos_notificacion (nombre, descripcion)
+        SELECT 'pantalla', 'Notificación mostrada en el dashboard'
+        WHERE NOT EXISTS (SELECT 1 FROM tipos_notificacion WHERE nombre = 'pantalla');
+    """)
+    op.execute("""
+        INSERT INTO estados_envio (nombre, descripcion)
+        SELECT 'confirmado', 'Notificación vista y confirmada'
+        WHERE NOT EXISTS (SELECT 1 FROM estados_envio WHERE nombre = 'confirmado');
+    """)
+
+    # =========================================================
     # 1. ACTUADORES (válvulas de riego)
     # =========================================================
     op.execute("""
@@ -30,7 +66,7 @@ def upgrade() -> None:
             estado_act_id integer;
         BEGIN
             SELECT id INTO dispositivo_id FROM dispositivos WHERE codigo = 'ESP-CAP-NORTE';
-            SELECT id INTO tipo_act_id FROM tipos_actuador WHERE nombre = 'Valvula solenoide';
+            SELECT id INTO tipo_act_id FROM tipos_actuador WHERE nombre = 'Válvula solenoide';
             SELECT id INTO estado_act_id FROM estados_actuador WHERE nombre = 'activo';
             
             -- Válvula para el invernadero 1
@@ -105,7 +141,6 @@ def upgrade() -> None:
         BEGIN
             SELECT id INTO ambito_global_id FROM ambitos_umbral WHERE nombre = 'global';
             FOR param IN SELECT id, nombre FROM parametros_umbral LOOP
-                -- CAMBIO: actualizado_por_ci
                 INSERT INTO configuraciones_umbral (parametro_umbral_id, valor, ambito_umbral_id, editable, actualizado_por_ci, actualizado_en)
                 SELECT 
                     param.id,
@@ -129,7 +164,6 @@ def upgrade() -> None:
     # 5. CALIBRACIONES DE SENSORES (ejemplo)
     # =========================================================
     op.execute("""
-        -- CAMBIO: usuario_id -> usuario_ci
         INSERT INTO calibraciones_sensor (sensor_id, tipo_calibracion, valor_anterior, valor_nuevo, motivo, usuario_ci, fecha_calibracion)
         SELECT 
             s.id, 'offset', NULL, 0.5, 'Ajuste inicial de fábrica',
@@ -272,7 +306,6 @@ def upgrade() -> None:
     # 11. AUDITORÍA DE ACCIONES (ejemplo)
     # =========================================================
     op.execute("""
-        -- CAMBIO: usuario_id -> usuario_ci, y extraer ci
         INSERT INTO auditoria_acciones (usuario_ci, accion, entidad_afectada, entidad_id, detalle_json, ip_origen, fecha_accion)
         SELECT 
             u.ci, 'LOGIN', 'users', NULL, '{"ip": "192.168.1.100"}'::jsonb, '192.168.1.100'::inet, now() - interval '5 days'
@@ -282,7 +315,6 @@ def upgrade() -> None:
     """);
     
     op.execute("""
-        -- CAMBIO: usuario_id -> usuario_ci
         INSERT INTO auditoria_acciones (usuario_ci, accion, entidad_afectada, entidad_id, detalle_json, ip_origen, fecha_accion)
         SELECT 
             (SELECT ci FROM users WHERE username = 'tecnico_luis'),
@@ -311,7 +343,6 @@ def upgrade() -> None:
                 WHERE cu.ambito_umbral_id = (SELECT id FROM ambitos_umbral WHERE nombre = 'global')
             LOOP
                 FOR inv IN SELECT id FROM invernaderos WHERE codigo IN ('INV-01', 'INV-02') LOOP
-                    -- CAMBIO: actualizado_por -> actualizado_por_ci
                     INSERT INTO configuraciones_umbral (parametro_umbral_id, valor, ambito_umbral_id, editable, actualizado_por_ci, actualizado_en)
                     SELECT config_global.parametro_umbral_id, config_global.valor + 10, 
                            (SELECT id FROM ambitos_umbral WHERE nombre = 'invernadero'),
