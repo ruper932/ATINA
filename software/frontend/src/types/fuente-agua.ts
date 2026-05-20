@@ -54,4 +54,5 @@ export type AtrapanieblaResponse = {
 export type UbicacionResponse = {
   id: number
   nombre: string
+  descripcion?: string | null
 }

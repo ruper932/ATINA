@@ -13,7 +13,6 @@ import {
   Link2,
 } from 'lucide-react'
 import type { UserRole } from '@/context/AuthContext'
-import { UserCircle2 } from 'lucide-react'
 
 export type NavItem = {
   title: string
@@ -23,12 +22,7 @@ export type NavItem = {
 }
 
 export const dashboardNavItems: NavItem[] = [
-  {
-    title: 'Perfil',
-    to: '/dashboard/perfil',
-    icon: UserCircle2,
-    allowedRoles: ['admin', 'docente', 'tecnico', 'estudiante', 'invitado'],
-  },
+  
   {
     title: 'Resumen',
     to: '/dashboard',
@@ -100,11 +94,11 @@ export const dashboardNavItems: NavItem[] = [
     to: '/dashboard/reportes',
     icon: BarChart3,
     allowedRoles: ['admin', 'docente', 'tecnico', 'estudiante'],
-  },
+  },/* Corregir bug, envia a welcome sin razón alguna y no permite la operavilidad del sistema
   {
     title: 'Configuración',
     to: '/dashboard/configuracion',
     icon: Settings,
     allowedRoles: ['admin'],
-  },
+  },*/
 ]

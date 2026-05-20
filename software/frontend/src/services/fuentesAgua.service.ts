@@ -9,6 +9,7 @@ import type {
   FuenteAguaResponse,
   FuenteAguaUpdatePayload,
   TipoFuenteAguaResponse,
+  UbicacionResponse,
 } from '@/types/fuente-agua'
 
 export const fuentesAguaService = {
@@ -46,6 +47,11 @@ export const fuentesAguaService = {
 
   getEstados: async (): Promise<EstadoFuenteAguaResponse[]> => {
     const { data } = await apiClient.get('/infra/catalogos/estados-fuente-agua')
+    return data
+  },
+
+  getUbicaciones: async (): Promise<UbicacionResponse[]> => {
+    const { data } = await apiClient.get('/infra/ubicaciones')
     return data
   },
 

@@ -93,13 +93,11 @@ function StatusPill({
   tone?: 'neutral' | 'success' | 'warning' | 'info'
 }) {
   const toneClasses = {
-    neutral: 'border-border bg-muted text-foreground',
+    neutral: 'border-border/70 bg-background text-foreground',
     success:
-      'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200',
-    warning:
-      'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200',
-    info:
-      'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-200',
+      'border-emerald-200/80 bg-emerald-50/80 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-300',
+    warning: 'border-border/70 bg-muted/50 text-muted-foreground dark:bg-muted/30',
+    info: 'border-border/70 bg-muted/50 text-foreground dark:bg-muted/30',
   }[tone]
 
   return (
@@ -123,11 +121,11 @@ function AlertBox({
       ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200'
       : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200'
 
-  return <div className={`rounded-xl border p-4 text-sm ${classes}`}>{message}</div>
+  return <div className={`rounded-2xl border p-4 text-sm ${classes}`}>{message}</div>
 }
 
 function SkeletonBox({ className = '' }: { className?: string }) {
-  return <div className={`animate-pulse rounded-xl bg-muted ${className}`} />
+  return <div className={`animate-pulse rounded-2xl bg-muted ${className}`} />
 }
 
 function ReadonlyInfoBlock({
@@ -138,9 +136,9 @@ function ReadonlyInfoBlock({
   value: string
 }) {
   return (
-    <div className="space-y-1 rounded-xl border p-3">
+    <div className="space-y-1 rounded-2xl border border-border/70 bg-background p-3">
       <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
-      <p className="text-sm font-medium">{value}</p>
+      <p className="text-sm font-medium text-foreground">{value}</p>
     </div>
   )
 }
@@ -463,11 +461,11 @@ export default function PerfilPage() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-3xl border bg-gradient-to-br from-background to-muted/20 p-6 shadow-sm">
+      <section className="rounded-3xl border border-border/70 bg-card p-6 shadow-sm">
         {isPerfilLoading ? (
           <div className="space-y-5">
             <div className="flex items-center gap-4">
-              <SkeletonBox className="h-16 w-16 rounded-2xl" />
+              <SkeletonBox className="h-16 w-16" />
               <div className="space-y-2">
                 <SkeletonBox className="h-4 w-24" />
                 <SkeletonBox className="h-8 w-48" />
@@ -485,13 +483,13 @@ export default function PerfilPage() {
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-4">
               <div className="flex items-center gap-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl border bg-background shadow-sm">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-border/70 bg-background">
                   <UserCircle2 className="h-8 w-8 text-muted-foreground" />
                 </div>
 
                 <div>
                   <p className="text-sm text-muted-foreground">Perfil de usuario</p>
-                  <h1 className="text-3xl font-bold tracking-tight">
+                  <h1 className="text-3xl font-bold tracking-tight text-foreground">
                     {perfil?.username ?? 'Mi perfil'}
                   </h1>
                   <p className="text-sm text-muted-foreground">
@@ -525,6 +523,7 @@ export default function PerfilPage() {
                   setTotpError(null)
                   setTotpSuccess(null)
                 }}
+                className="border-border/70"
               >
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Recargar
@@ -539,7 +538,7 @@ export default function PerfilPage() {
       )}
 
       <section className="grid gap-6 xl:grid-cols-[1fr_1.2fr]">
-        <Card>
+        <Card className="border-border/70 shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <UserCircle2 className="h-5 w-5" />
@@ -581,7 +580,7 @@ export default function PerfilPage() {
         </Card>
 
         <div className="space-y-6">
-          <Card>
+          <Card className="border-border/70 shadow-sm">
             <CardHeader>
               <CardTitle>Datos básicos</CardTitle>
               <CardDescription>
@@ -682,7 +681,7 @@ export default function PerfilPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-border/70 shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shield className="h-5 w-5" />
@@ -701,10 +700,10 @@ export default function PerfilPage() {
                 </div>
               ) : (
                 <div className="grid gap-4 lg:grid-cols-2">
-                  <div className="rounded-xl border bg-muted/20 p-4">
+                  <div className="rounded-2xl border border-border/70 bg-background p-4">
                     <div className="mb-4 flex items-start justify-between gap-3">
                       <div>
-                        <h3 className="flex items-center gap-2 font-medium">
+                        <h3 className="flex items-center gap-2 font-medium text-foreground">
                           <KeyRound className="h-4 w-4" />
                           Contraseña
                         </h3>
@@ -775,10 +774,10 @@ export default function PerfilPage() {
                     </form>
                   </div>
 
-                  <div className="rounded-xl border bg-muted/20 p-4">
+                  <div className="rounded-2xl border border-border/70 bg-background p-4">
                     <div className="mb-4 flex items-start justify-between gap-3">
                       <div>
-                        <h3 className="flex items-center gap-2 font-medium">
+                        <h3 className="flex items-center gap-2 font-medium text-foreground">
                           <Lock className="h-4 w-4" />
                           Autenticación TOTP
                         </h3>
@@ -806,19 +805,20 @@ export default function PerfilPage() {
                       </Button>
                     ) : (
                       <div className="space-y-4">
-                        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/20">
+                        <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
                           <div className="flex items-center gap-2">
-                            <Unlock className="h-4 w-4 text-emerald-700 dark:text-emerald-300" />
-                            <p className="font-medium text-emerald-800 dark:text-emerald-200">
-                              TOTP está habilitado
-                            </p>
+                            <Unlock className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                            <p className="font-medium text-foreground">TOTP está habilitado</p>
                           </div>
-                          <p className="mt-2 text-sm text-emerald-700/90 dark:text-emerald-200/90">
+                          <p className="mt-2 text-sm text-muted-foreground">
                             Para desactivarlo, confirma tu contraseña y el código actual generado por tu aplicación autenticadora.
                           </p>
                         </div>
 
-                        <form onSubmit={handleDisableTotp} className="space-y-4 rounded-xl border bg-background p-4">
+                        <form
+                          onSubmit={handleDisableTotp}
+                          className="space-y-4 rounded-2xl border border-border/70 bg-muted/20 p-4"
+                        >
                           <PasswordField
                             id="disable_totp_password"
                             label="Contraseña actual"
@@ -871,7 +871,7 @@ export default function PerfilPage() {
       </section>
 
       <Dialog open={isTotpModalOpen} onOpenChange={(open) => !open && closeTotpModal()}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="border-border/70 sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Configurar autenticación TOTP</DialogTitle>
             <DialogDescription>
@@ -884,9 +884,9 @@ export default function PerfilPage() {
 
             {!totpSetup ? (
               <div className="space-y-4">
-                <div className="rounded-xl border bg-muted/30 p-6">
+                <div className="rounded-2xl border border-border/70 bg-muted/30 p-6">
                   <div className="space-y-2 text-center">
-                    <p className="text-sm font-medium">Generando configuración</p>
+                    <p className="text-sm font-medium text-foreground">Generando configuración</p>
                     <p className="text-sm text-muted-foreground">
                       Estamos preparando tu código QR y los datos de configuración.
                     </p>
@@ -896,13 +896,13 @@ export default function PerfilPage() {
             ) : (
               <div className="space-y-6">
                 <div className="grid gap-6 md:grid-cols-[220px_1fr]">
-                  <div className="flex items-center justify-center rounded-xl border bg-white p-4">
+                  <div className="flex items-center justify-center rounded-2xl border border-border/70 bg-background p-4">
                     <QRCodeSVG value={totpSetup.uri} size={180} />
                   </div>
 
                   <div className="space-y-4">
                     <div>
-                      <p className="text-sm font-medium">Escanea el código QR</p>
+                      <p className="text-sm font-medium text-foreground">Escanea el código QR</p>
                       <p className="text-sm text-muted-foreground">
                         Usa Google Authenticator, Authy, Microsoft Authenticator o cualquier aplicación compatible.
                       </p>
@@ -915,6 +915,7 @@ export default function PerfilPage() {
                         <Button
                           type="button"
                           variant="outline"
+                          className="border-border/70"
                           onClick={() => copyToClipboard(totpSetup.secret, 'secret')}
                         >
                           {copiedSecret ? (
@@ -933,6 +934,7 @@ export default function PerfilPage() {
                         <Button
                           type="button"
                           variant="outline"
+                          className="border-border/70"
                           onClick={() => copyToClipboard(totpSetup.uri, 'uri')}
                         >
                           {copiedUri ? (
@@ -966,7 +968,7 @@ export default function PerfilPage() {
                   </div>
 
                   <DialogFooter>
-                    <Button type="button" variant="outline" onClick={closeTotpModal}>
+                    <Button type="button" variant="outline" className="border-border/70" onClick={closeTotpModal}>
                       Cancelar
                     </Button>
                     <Button type="submit" disabled={enableTotpMutation.isPending}>

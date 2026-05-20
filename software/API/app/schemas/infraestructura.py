@@ -34,7 +34,9 @@ class InvernaderoBase(BaseModel):
     prioridad_riego: int = Field(default=1, ge=1, le=10)
     estado_invernadero_id: int
 
+
 class InvernaderoCreate(InvernaderoBase): pass
+
 
 class InvernaderoUpdate(InvernaderoBase):
     ubicacion_id: int | None = None
@@ -43,11 +45,13 @@ class InvernaderoUpdate(InvernaderoBase):
     area_m2: Decimal | None = None
     estado_invernadero_id: int | None = None
 
+
 class InvernaderoResponse(InvernaderoBase):
     id: int
     creado_en: datetime
+    ubicacion_nombre: str | None = None
+    estado_invernadero_nombre: str | None = None
     model_config = ConfigDict(from_attributes=True)
-
 
 # === ATRAPANIEBLAS ===
 class AtrapanieblaBase(BaseModel):
