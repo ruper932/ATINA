@@ -12,7 +12,12 @@ import {
   Layers3,
   Map,
   Info,
+  Download,
 } from 'lucide-react'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import ExcelJS from 'exceljs'
+import Papa from 'papaparse'
 
 import { ubicacionesService } from '@/services/ubicaciones.service'
 import { catalogosService, type TipoUbicacion } from '@/services/catalogos.service'
@@ -185,6 +190,16 @@ function formatAltitude(value?: number | null) {
   return `${value} m`
 }
 
+function downloadBlob(content: BlobPart, fileName: string, type: string) {
+  const blob = new Blob([content], { type })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function UbicacionesPage() {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
@@ -192,6 +207,10 @@ export default function UbicacionesPage() {
   const [form, setForm] = useState<FormState>(initialForm)
   const [search, setSearch] = useState('')
   const [apiError, setApiError] = useState<string | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
+
+  // Filtros en tiempo real
+  const [filtroTipo, setFiltroTipo] = useState<string>('all')
 
   const ubicacionesQuery = useQuery({
     queryKey: ['ubicaciones'],
@@ -302,18 +321,28 @@ export default function UbicacionesPage() {
     }
   }
 
+  // Aplicar filtros en tiempo real (búsqueda + tipo)
   const filteredItems = useMemo(() => {
+    let items = ubicaciones
+
+    // Búsqueda por texto
     const term = search.toLowerCase().trim()
+    if (term) {
+      items = items.filter(
+        (item) =>
+          String(item.id).includes(term) ||
+          item.nombre.toLowerCase().includes(term) ||
+          String(item.descripcion ?? '').toLowerCase().includes(term)
+      )
+    }
 
-    if (!term) return ubicaciones
+    // Filtro por tipo de ubicación
+    if (filtroTipo !== 'all') {
+      items = items.filter((item) => String(item.tipo_ubicacion_id) === filtroTipo)
+    }
 
-    return ubicaciones.filter(
-      (item) =>
-        String(item.id).includes(term) ||
-        item.nombre.toLowerCase().includes(term) ||
-        String(item.descripcion ?? '').toLowerCase().includes(term)
-    )
-  }, [ubicaciones, search])
+    return items
+  }, [ubicaciones, search, filtroTipo])
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending
 
@@ -327,6 +356,114 @@ export default function UbicacionesPage() {
     (item) => item.latitud !== null && item.longitud !== null
   ).length
   const tiposRegistrados = new Set(ubicaciones.map((item) => item.tipo_ubicacion_id)).size
+
+  // Preparar datos para exportación (solo los filtrados)
+  const exportRows = useMemo(() => {
+    return filteredItems.map((item) => {
+      const tipoEncontrado = tipos.find((t: TipoUbicacion) => t.id === item.tipo_ubicacion_id)
+      const nombreTipo = tipoEncontrado ? tipoEncontrado.nombre : `ID: ${item.tipo_ubicacion_id}`
+
+      const padreEncontrado = ubicaciones.find((u) => u.id === item.ubicacion_padre_id)
+      const nombrePadre = padreEncontrado
+        ? padreEncontrado.nombre
+        : item.ubicacion_padre_id
+          ? `ID: ${item.ubicacion_padre_id}`
+          : 'Sin padre'
+
+      return {
+        ID: item.id,
+        Nombre: item.nombre,
+        Tipo: nombreTipo,
+        'Ubicación Padre': nombrePadre,
+        Descripción: item.descripcion || '—',
+        Latitud: formatCoordinate(item.latitud),
+        Longitud: formatCoordinate(item.longitud),
+        Altitud: formatAltitude(item.altitud_m),
+      }
+    })
+  }, [filteredItems, tipos, ubicaciones])
+
+  // Funciones de exportación
+  async function handleExportCSV() {
+    try {
+      setIsExporting(true)
+      const csv = Papa.unparse(exportRows)
+      downloadBlob(csv, `ubicaciones-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.csv`, 'text/csv;charset=utf-8;')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  async function handleExportExcel() {
+    try {
+      setIsExporting(true)
+      const workbook = new ExcelJS.Workbook()
+      const worksheet = workbook.addWorksheet('Ubicaciones')
+
+      worksheet.columns = Object.keys(exportRows[0] || {}).map((key) => ({
+        header: key,
+        key,
+        width: Math.max(16, key.length + 4),
+      }))
+
+      exportRows.forEach((row) => worksheet.addRow(row))
+
+      const headerRow = worksheet.getRow(1)
+      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: '10B981' },
+      }
+      headerRow.alignment = { vertical: 'middle', horizontal: 'center' }
+
+      worksheet.eachRow((row, rowNumber) => {
+        row.alignment = { vertical: 'middle' }
+        if (rowNumber > 1) {
+          row.eachCell((cell) => {
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'E5E7EB' } },
+              left: { style: 'thin', color: { argb: 'E5E7EB' } },
+              bottom: { style: 'thin', color: { argb: 'E5E7EB' } },
+              right: { style: 'thin', color: { argb: 'E5E7EB' } },
+            }
+          })
+        }
+      })
+
+      const buffer = await workbook.xlsx.writeBuffer()
+      downloadBlob(buffer, `ubicaciones-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  async function handleExportPDF() {
+    try {
+      setIsExporting(true)
+      const doc = new jsPDF('landscape', 'pt', 'a4')
+      doc.setFontSize(16)
+      doc.text('Listado de Ubicaciones', 40, 30)
+      doc.setFontSize(10)
+      doc.text(`Generado: ${new Date().toLocaleString()}`, 40, 50)
+
+      const headers = Object.keys(exportRows[0] || {})
+      const body = exportRows.map((row) => Object.values(row).map((v) => String(v)))
+
+      autoTable(doc, {
+        startY: 70,
+        head: [headers],
+        body,
+        styles: { fontSize: 8, cellPadding: 4 },
+        headStyles: { fillColor: [16, 185, 129] },
+        margin: { left: 40, right: 40 },
+      })
+
+      doc.save(`ubicaciones-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.pdf`)
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   const stats: StatCard[] = [
     {
@@ -381,7 +518,7 @@ export default function UbicacionesPage() {
             </p>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
               className="rounded-2xl"
@@ -392,6 +529,36 @@ export default function UbicacionesPage() {
             >
               <RefreshCw className="mr-2 h-4 w-4" />
               Recargar
+            </Button>
+
+            <Button
+              variant="outline"
+              className="rounded-2xl"
+              onClick={handleExportCSV}
+              disabled={isExporting || filteredItems.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              CSV
+            </Button>
+
+            <Button
+              variant="outline"
+              className="rounded-2xl"
+              onClick={handleExportExcel}
+              disabled={isExporting || filteredItems.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Excel
+            </Button>
+
+            <Button
+              variant="outline"
+              className="rounded-2xl"
+              onClick={handleExportPDF}
+              disabled={isExporting || filteredItems.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              PDF
             </Button>
 
             <Dialog
@@ -592,16 +759,34 @@ export default function UbicacionesPage() {
       <section>
         <SurfaceCard
           title="Listado de ubicaciones"
-          description="Busca por identificador, nombre o descripción y administra la estructura física."
+          description="Filtra por ID, nombre o tipo, y administra la estructura física."
           action={
-            <div className="relative w-full md:w-80">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por ID, nombre o descripción..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="h-11 rounded-2xl border-border/70 bg-background pl-9"
-              />
+            <div className="flex flex-col gap-3 w-full md:flex-row md:items-center">
+              <div className="relative w-full md:w-80">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por ID, nombre o descripción..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="h-11 rounded-2xl border-border/70 bg-background pl-9"
+                />
+              </div>
+              <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+                <SelectTrigger className="h-11 rounded-2xl border-border/70 bg-background w-full md:w-48">
+                  <SelectValue placeholder="Filtrar por tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los tipos</SelectItem>
+                  {tipos.map((tipo: TipoUbicacion) => (
+                    <SelectItem key={tipo.id} value={String(tipo.id)}>
+                      {tipo.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="text-sm text-muted-foreground whitespace-nowrap">
+                {filteredItems.length} resultado{filteredItems.length === 1 ? '' : 's'}
+              </div>
             </div>
           }
         >
@@ -646,7 +831,7 @@ export default function UbicacionesPage() {
                 ) : filteredItems.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
-                      No se encontraron ubicaciones.
+                      No se encontraron ubicaciones con los filtros aplicados.
                     </TableCell>
                   </TableRow>
                 ) : (

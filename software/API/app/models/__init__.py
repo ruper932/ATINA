@@ -9,3 +9,4 @@ from app.models.riego import *
 from app.models.alertas import *
 from app.models.umbrales import *
 from app.models.reportes import *
+from app.models.solicitudes import *

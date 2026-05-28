@@ -20,6 +20,7 @@ from app.api.routes import (
     riego,
     umbrales,
     usuarios,
+    solicitudes,
 )
 from app.core.config import settings
 
@@ -123,6 +124,13 @@ app.include_router(
     prefix=f"{settings.API_V1_STR}/reportes",
     tags=["Reportes y Sincronización"],
 )
+
+app.include_router(
+    solicitudes.router,
+    prefix=f"{settings.API_V1_STR}/solicitudes",
+    tags=["Solicitudes para ubicaciones."],
+)
+
 
 
 @app.get("/", tags=["Root"])

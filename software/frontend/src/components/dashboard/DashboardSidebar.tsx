@@ -2,11 +2,13 @@ import { NavLink } from 'react-router-dom'
 import { dashboardNavItems } from '@/config/navigation'
 import { useAuth } from '@/hooks/useAuth'
 
+
 type DashboardSidebarProps = {
   open: boolean
   onOpen: () => void
   onClose: () => void
 }
+
 
 export function DashboardSidebar({
   open,
@@ -15,9 +17,11 @@ export function DashboardSidebar({
 }: DashboardSidebarProps) {
   const { role } = useAuth()
 
+
   const visibleItems = dashboardNavItems.filter((item) =>
     role ? item.allowedRoles.includes(role) : false
   )
+
 
   return (
     <div
@@ -51,11 +55,13 @@ export function DashboardSidebar({
           )}
         </div>
 
+
         <div className="flex h-[calc(100vh-4rem)] flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto px-3 py-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             <nav className="space-y-1.5">
               {visibleItems.map((item) => {
                 const Icon = item.icon
+
 
                 return (
                   <NavLink
@@ -86,6 +92,7 @@ export function DashboardSidebar({
                         >
                           <Icon className="h-4 w-4" />
                         </div>
+
 
                         <span
                           className={[

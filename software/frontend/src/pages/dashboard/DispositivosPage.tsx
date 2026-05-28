@@ -10,7 +10,12 @@ import {
   Activity,
   Wifi,
   Search,
+  Download,
 } from 'lucide-react'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import ExcelJS from 'exceljs'
+import Papa from 'papaparse'
 
 import { dispositivosService } from '@/services/dispositivos.service'
 import { catalogosService } from '@/services/catalogos.service'
@@ -154,6 +159,52 @@ function SurfaceCard({
   )
 }
 
+function getEstadoBadgeClass(nombre?: string | null) {
+  const value = String(nombre ?? '').trim().toLowerCase()
+
+  if (value.includes('inactivo') || value.includes('error') || value.includes('fall')) {
+    return 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-300'
+  }
+
+  if (value.includes('mantenimiento') || value.includes('revision') || value.includes('revisión')) {
+    return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300'
+  }
+
+  if (value.includes('activo') || value.includes('operativo')) {
+    return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300'
+  }
+
+  return 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/40 dark:bg-sky-950/20 dark:text-sky-300'
+}
+
+function getTipoBadgeClass(nombre?: string | null) {
+  const value = String(nombre ?? '').trim().toLowerCase()
+
+  if (value.includes('controlador') || value.includes('plc')) {
+    return 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900/40 dark:bg-violet-950/20 dark:text-violet-300'
+  }
+
+  if (value.includes('sensor') || value.includes('medición')) {
+    return 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/40 dark:bg-sky-950/20 dark:text-sky-300'
+  }
+
+  if (value.includes('actuador') || value.includes('válvula')) {
+    return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300'
+  }
+
+  return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300'
+}
+
+function downloadBlob(content: BlobPart, fileName: string, type: string) {
+  const blob = new Blob([content], { type })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function DispositivosPage() {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
@@ -161,6 +212,11 @@ export default function DispositivosPage() {
   const [form, setForm] = useState<FormState>(initialForm)
   const [search, setSearch] = useState('')
   const [apiError, setApiError] = useState<string | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
+
+  // Filtros en tiempo real
+  const [filtroTipo, setFiltroTipo] = useState<string>('all')
+  const [filtroEstado, setFiltroEstado] = useState<string>('all')
 
   const dispositivosQuery = useQuery({
     queryKey: ['dispositivos'],
@@ -273,26 +329,146 @@ export default function DispositivosPage() {
     }
   }
 
+  const dispositivosData = dispositivosQuery.data ?? []
+  const tiposData = tiposDispositivoQuery.data ?? []
+  const estadosData = estadosDispositivoQuery.data ?? []
+
+  // Aplicar filtros en tiempo real (búsqueda + tipo + estado)
   const filteredItems = useMemo(() => {
-    const items = dispositivosQuery.data ?? []
+    let items = dispositivosData
+
+    // Búsqueda por texto
     const term = search.toLowerCase().trim()
-    if (!term) return items
-    return items.filter(
-      (item) =>
-        String(item.id).includes(term) ||
-        item.codigo.toLowerCase().includes(term) ||
-        item.nombre.toLowerCase().includes(term) ||
-        (item.ip_local && item.ip_local.includes(term))
-    )
-  }, [dispositivosQuery.data, search])
+    if (term) {
+      items = items.filter(
+        (item) =>
+          String(item.id).includes(term) ||
+          item.codigo.toLowerCase().includes(term) ||
+          item.nombre.toLowerCase().includes(term) ||
+          (item.ip_local && item.ip_local.includes(term))
+      )
+    }
+
+    // Filtro por tipo de dispositivo
+    if (filtroTipo !== 'all') {
+      items = items.filter((item) => String(item.tipo_dispositivo_id) === filtroTipo)
+    }
+
+    // Filtro por estado
+    if (filtroEstado !== 'all') {
+      items = items.filter((item) => String(item.estado_dispositivo_id) === filtroEstado)
+    }
+
+    return items
+  }, [dispositivosData, search, filtroTipo, filtroEstado])
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending
 
-  const totalDispositivos = dispositivosQuery.data?.length ?? 0
-  const conectados = (dispositivosQuery.data ?? []).filter((item) =>
+  const totalDispositivos = dispositivosData.length
+  const conectados = dispositivosData.filter((item) =>
     String(item.estado_dispositivo_nombre ?? '').trim().toLowerCase() === 'activo'
   ).length
-  const conIp = (dispositivosQuery.data ?? []).filter((item) => Boolean(item.ip_local?.trim())).length
+  const conIp = dispositivosData.filter((item) => Boolean(item.ip_local?.trim())).length
+
+  // Preparar datos para exportación (solo los filtrados)
+  const exportRows = useMemo(() => {
+    return filteredItems.map((item) => {
+      const tipo = tiposData.find((t) => t.id === item.tipo_dispositivo_id)
+      const estado = estadosData.find((e) => e.id === item.estado_dispositivo_id)
+
+      return {
+        Código: item.codigo,
+        Nombre: item.nombre,
+        Tipo: tipo?.nombre ?? `ID: ${item.tipo_dispositivo_id}`,
+        Estado: estado?.nombre ?? `ID: ${item.estado_dispositivo_id}`,
+        'Identificador Local': item.identificador_local || '—',
+        'IP Local': item.ip_local || '—',
+        'Versión Firmware': item.version_firmware || '—',
+      }
+    })
+  }, [filteredItems, tiposData, estadosData])
+
+  // Funciones de exportación
+  async function handleExportCSV() {
+    try {
+      setIsExporting(true)
+      const csv = Papa.unparse(exportRows)
+      downloadBlob(csv, `dispositivos-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.csv`, 'text/csv;charset=utf-8;')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  async function handleExportExcel() {
+    try {
+      setIsExporting(true)
+      const workbook = new ExcelJS.Workbook()
+      const worksheet = workbook.addWorksheet('Dispositivos')
+
+      worksheet.columns = Object.keys(exportRows[0] || {}).map((key) => ({
+        header: key,
+        key,
+        width: Math.max(16, key.length + 4),
+      }))
+
+      exportRows.forEach((row) => worksheet.addRow(row))
+
+      const headerRow = worksheet.getRow(1)
+      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: '10B981' },
+      }
+      headerRow.alignment = { vertical: 'middle', horizontal: 'center' }
+
+      worksheet.eachRow((row, rowNumber) => {
+        row.alignment = { vertical: 'middle' }
+        if (rowNumber > 1) {
+          row.eachCell((cell) => {
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'E5E7EB' } },
+              left: { style: 'thin', color: { argb: 'E5E7EB' } },
+              bottom: { style: 'thin', color: { argb: 'E5E7EB' } },
+              right: { style: 'thin', color: { argb: 'E5E7EB' } },
+            }
+          })
+        }
+      })
+
+      const buffer = await workbook.xlsx.writeBuffer()
+      downloadBlob(buffer, `dispositivos-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  async function handleExportPDF() {
+    try {
+      setIsExporting(true)
+      const doc = new jsPDF('landscape', 'pt', 'a4')
+      doc.setFontSize(16)
+      doc.text('Listado de Dispositivos', 40, 30)
+      doc.setFontSize(10)
+      doc.text(`Generado: ${new Date().toLocaleString()}`, 40, 50)
+
+      const headers = Object.keys(exportRows[0] || {})
+      const body = exportRows.map((row) => Object.values(row).map((v) => String(v)))
+
+      autoTable(doc, {
+        startY: 70,
+        head: [headers],
+        body,
+        styles: { fontSize: 8, cellPadding: 4 },
+        headStyles: { fillColor: [16, 185, 129] },
+        margin: { left: 40, right: 40 },
+      })
+
+      doc.save(`dispositivos-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.pdf`)
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   const stats: StatCard[] = [
     {
@@ -339,7 +515,7 @@ export default function DispositivosPage() {
             </p>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
               className="rounded-2xl"
@@ -350,6 +526,36 @@ export default function DispositivosPage() {
             >
               <RefreshCw className="mr-2 h-4 w-4" />
               Recargar
+            </Button>
+
+            <Button
+              variant="outline"
+              className="rounded-2xl"
+              onClick={handleExportCSV}
+              disabled={isExporting || filteredItems.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              CSV
+            </Button>
+
+            <Button
+              variant="outline"
+              className="rounded-2xl"
+              onClick={handleExportExcel}
+              disabled={isExporting || filteredItems.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Excel
+            </Button>
+
+            <Button
+              variant="outline"
+              className="rounded-2xl"
+              onClick={handleExportPDF}
+              disabled={isExporting || filteredItems.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              PDF
             </Button>
 
             <Dialog
@@ -422,7 +628,7 @@ export default function DispositivosPage() {
                           />
                         </SelectTrigger>
                         <SelectContent>
-                          {tiposDispositivoQuery.data?.map((tipo) => (
+                          {tiposData.map((tipo) => (
                             <SelectItem key={tipo.id} value={String(tipo.id)}>
                               {tipo.nombre}
                             </SelectItem>
@@ -452,7 +658,7 @@ export default function DispositivosPage() {
                           />
                         </SelectTrigger>
                         <SelectContent>
-                          {estadosDispositivoQuery.data?.map((estado) => (
+                          {estadosData.map((estado) => (
                             <SelectItem key={estado.id} value={String(estado.id)}>
                               {estado.nombre}
                             </SelectItem>
@@ -539,16 +745,47 @@ export default function DispositivosPage() {
 
       <SurfaceCard
         title="Listado de dispositivos"
-        description="Busca por id, código, nombre o IP y administra cada registro."
+        description="Filtra por código, nombre, IP, tipo o estado en tiempo real."
         action={
-          <div className="relative w-full md:w-80">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por id, código, nombre o IP..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-11 rounded-2xl border-border/70 bg-background pl-9"
-            />
+          <div className="flex flex-col gap-3 w-full md:flex-row md:items-center">
+            <div className="relative w-full md:w-80">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por código, nombre o IP..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-11 rounded-2xl border-border/70 bg-background pl-9"
+              />
+            </div>
+            <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+              <SelectTrigger className="h-11 rounded-2xl border-border/70 bg-background w-full md:w-48">
+                <SelectValue placeholder="Filtrar por tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los tipos</SelectItem>
+                {tiposData.map((tipo) => (
+                  <SelectItem key={tipo.id} value={String(tipo.id)}>
+                    {tipo.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filtroEstado} onValueChange={setFiltroEstado}>
+              <SelectTrigger className="h-11 rounded-2xl border-border/70 bg-background w-full md:w-48">
+                <SelectValue placeholder="Filtrar por estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los estados</SelectItem>
+                {estadosData.map((estado) => (
+                  <SelectItem key={estado.id} value={String(estado.id)}>
+                    {estado.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="text-sm text-muted-foreground whitespace-nowrap">
+              {filteredItems.length} resultado{filteredItems.length === 1 ? '' : 's'}
+            </div>
           </div>
         }
       >
@@ -590,17 +827,15 @@ export default function DispositivosPage() {
               ) : filteredItems.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
-                    No se encontraron dispositivos.
+                    No se encontraron dispositivos con los filtros aplicados.
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredItems.map((item) => {
-                  const tipo = tiposDispositivoQuery.data?.find(
-                    (t) => t.id === item.tipo_dispositivo_id
-                  )
-                  const estado = estadosDispositivoQuery.data?.find(
-                    (e) => e.id === item.estado_dispositivo_id
-                  )
+                  const tipo = tiposData.find((t) => t.id === item.tipo_dispositivo_id)
+                  const estado = estadosData.find((e) => e.id === item.estado_dispositivo_id)
+                  const estadoNombre = estado?.nombre ?? `ID: ${item.estado_dispositivo_id}`
+                  const tipoNombre = tipo?.nombre ?? `ID: ${item.tipo_dispositivo_id}`
 
                   return (
                     <TableRow
@@ -609,11 +844,21 @@ export default function DispositivosPage() {
                     >
                       <TableCell className="font-medium text-foreground">{item.codigo}</TableCell>
                       <TableCell className="text-foreground">{item.nombre}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {tipo ? tipo.nombre : item.tipo_dispositivo_id}
+                      <TableCell>
+                        <Badge
+                          variant="secondary"
+                          className={`rounded-full border ${getTipoBadgeClass(tipoNombre)}`}
+                        >
+                          {tipoNombre}
+                        </Badge>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {estado ? estado.nombre : item.estado_dispositivo_id}
+                      <TableCell>
+                        <Badge
+                          variant="secondary"
+                          className={`rounded-full border ${getEstadoBadgeClass(estadoNombre)}`}
+                        >
+                          {estadoNombre}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-muted-foreground">{item.ip_local || '-'}</TableCell>
                       <TableCell className="text-muted-foreground">

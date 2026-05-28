@@ -14,7 +14,13 @@ import {
   Users,
   Activity,
   UserCog,
+  Download,
+  AlertCircle,
 } from 'lucide-react'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import ExcelJS from 'exceljs'
+import Papa from 'papaparse'
 
 import { usersService } from '@/services/users.service'
 import type {
@@ -68,6 +74,15 @@ type FormState = {
   is_email_2fa_enabled: boolean
 }
 
+type FormErrors = {
+  ci?: string
+  email?: string
+  username?: string
+  password?: string
+  rol_id?: string
+  estado_usuario_id?: string
+}
+
 type MetricTone = 'emerald' | 'teal' | 'amber' | 'rose' | 'blue' | 'violet'
 
 type MetricItem = {
@@ -77,6 +92,10 @@ type MetricItem = {
   icon: React.ElementType
   tone: MetricTone
 }
+
+type RoleFilterValue = 'all' | string
+type AccessFilterValue = 'all' | 'active' | 'inactive'
+type TwoFactorFilterValue = 'all' | 'with-2fa' | 'without-2fa'
 
 const initialForm: FormState = {
   ci: '',
@@ -92,6 +111,12 @@ const initialForm: FormState = {
 }
 
 const PAGE_SIZE = 10
+
+// Expresiones regulares para validaciones
+const CI_REGEX = /^\d{6,10}$/
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const USERNAME_REGEX = /^[a-zA-Z0-9_-]{3,30}$/
+const PASSWORD_REGEX = /^.{6,}$/
 
 const toneMap = {
   emerald:
@@ -244,9 +269,14 @@ export default function UsuariosPage() {
   const [open, setOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<UserResponse | null>(null)
   const [form, setForm] = useState<FormState>(initialForm)
+  const [formErrors, setFormErrors] = useState<FormErrors>({})
   const [search, setSearch] = useState('')
   const [apiError, setApiError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
+
+  const [roleFilter, setRoleFilter] = useState<RoleFilterValue>('all')
+  const [accessFilter, setAccessFilter] = useState<AccessFilterValue>('all')
+  const [twoFactorFilter, setTwoFactorFilter] = useState<TwoFactorFilterValue>('all')
 
   const usersQuery = useQuery({
     queryKey: ['users'],
@@ -301,6 +331,7 @@ export default function UsuariosPage() {
 
   function resetFormAndClose() {
     setForm(initialForm)
+    setFormErrors({})
     setEditingUser(null)
     setApiError(null)
     setOpen(false)
@@ -309,6 +340,7 @@ export default function UsuariosPage() {
   function openCreateModal() {
     setEditingUser(null)
     setForm(initialForm)
+    setFormErrors({})
     setApiError(null)
     setOpen(true)
   }
@@ -327,21 +359,79 @@ export default function UsuariosPage() {
       is_totp_enabled: user.is_totp_enabled,
       is_email_2fa_enabled: user.is_email_2fa_enabled,
     })
+    setFormErrors({})
     setApiError(null)
     setOpen(true)
+  }
+
+  // Función de validación del formulario
+  const validateForm = (): boolean => {
+    const errors: FormErrors = {}
+    let isValid = true
+
+    // Validación de CI (solo para creación, no para edición)
+    if (!editingUser) {
+      if (!form.ci) {
+        errors.ci = 'El CI es obligatorio'
+        isValid = false
+      } else if (!CI_REGEX.test(form.ci)) {
+        errors.ci = 'El CI debe tener entre 6 y 10 dígitos numéricos'
+        isValid = false
+      }
+    }
+
+    // Validación de email
+    if (!form.email) {
+      errors.email = 'El correo electrónico es obligatorio'
+      isValid = false
+    } else if (!EMAIL_REGEX.test(form.email)) {
+      errors.email = 'Ingrese un correo electrónico válido (ejemplo@dominio.com)'
+      isValid = false
+    }
+
+    // Validación de username
+    if (!form.username) {
+      errors.username = 'El nombre de usuario es obligatorio'
+      isValid = false
+    } else if (!USERNAME_REGEX.test(form.username)) {
+      errors.username = 'El nombre de usuario debe tener entre 3 y 30 caracteres (letras, números, guiones o guiones bajos)'
+      isValid = false
+    }
+
+    // Validación de contraseña (obligatoria para creación, opcional para edición)
+    if (!editingUser && !form.password) {
+      errors.password = 'La contraseña es obligatoria'
+      isValid = false
+    } else if (!editingUser && !PASSWORD_REGEX.test(form.password)) {
+      errors.password = 'La contraseña debe tener al menos 6 caracteres'
+      isValid = false
+    } else if (editingUser && form.password && !PASSWORD_REGEX.test(form.password)) {
+      errors.password = 'La contraseña debe tener al menos 6 caracteres'
+      isValid = false
+    }
+
+    // Validación de rol
+    if (!form.rol_id) {
+      errors.rol_id = 'Debe seleccionar un rol'
+      isValid = false
+    }
+
+    // Validación de estado de usuario
+    if (!form.estado_usuario_id) {
+      errors.estado_usuario_id = 'Debe seleccionar un estado de acceso'
+      isValid = false
+    }
+
+    setFormErrors(errors)
+    return isValid
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setApiError(null)
 
-    if (!form.ci || !form.email || !form.username || !form.rol_id || !form.estado_usuario_id) {
-      setApiError('Completa todos los campos obligatorios.')
-      return
-    }
-
-    if (!editingUser && !form.password.trim()) {
-      setApiError('La contraseña es obligatoria al crear un usuario.')
+    // Ejecutar validaciones
+    if (!validateForm()) {
       return
     }
 
@@ -381,31 +471,6 @@ export default function UsuariosPage() {
     createMutation.mutate(payload)
   }
 
-  const filteredUsers = useMemo(() => {
-    const items = usersQuery.data ?? []
-    const term = search.toLowerCase().trim()
-
-    if (!term) return items
-
-    return items.filter(
-      (user) =>
-        user.username.toLowerCase().includes(term) ||
-        user.email.toLowerCase().includes(term) ||
-        user.ci.toLowerCase().includes(term)
-    )
-  }, [usersQuery.data, search])
-
-  useEffect(() => {
-    setPage(1)
-  }, [search])
-
-  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE))
-
-  const paginatedUsers = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE
-    return filteredUsers.slice(start, start + PAGE_SIZE)
-  }, [filteredUsers, page])
-
   const rolesMap = useMemo(() => {
     const map = new Map<number, string>()
     ;(rolesQuery.data ?? []).forEach((role: RolResponse) => {
@@ -421,6 +486,200 @@ export default function UsuariosPage() {
     })
     return map
   }, [estadosQuery.data])
+
+  const activeEstado = useMemo(() => {
+    return (estadosQuery.data ?? []).find((estado) => {
+      const nombre = estado.nombre.trim().toLowerCase()
+      return nombre === 'activo' || nombre === 'activa' || nombre === 'habilitado'
+    })
+  }, [estadosQuery.data])
+
+  const inactiveEstado = useMemo(() => {
+    return (estadosQuery.data ?? []).find((estado) => {
+      const nombre = estado.nombre.trim().toLowerCase()
+      return nombre === 'inactivo' || nombre === 'inactiva' || nombre === 'deshabilitado'
+    })
+  }, [estadosQuery.data])
+
+  const accessStatusValue = useMemo(() => {
+    if (activeEstado && form.estado_usuario_id === String(activeEstado.id) && form.is_active) {
+      return 'active'
+    }
+
+    if (inactiveEstado && form.estado_usuario_id === String(inactiveEstado.id) && !form.is_active) {
+      return 'inactive'
+    }
+
+    return form.is_active ? 'active' : 'inactive'
+  }, [form.estado_usuario_id, form.is_active, activeEstado, inactiveEstado])
+
+  const filteredUsers = useMemo(() => {
+    const items = usersQuery.data ?? []
+    const term = search.toLowerCase().trim()
+
+    return items.filter((user) => {
+      const matchesSearch =
+        !term ||
+        user.username.toLowerCase().includes(term) ||
+        user.email.toLowerCase().includes(term) ||
+        user.ci.toLowerCase().includes(term)
+
+      const matchesRole = roleFilter === 'all' || String(user.rol_id ?? '') === roleFilter
+
+      const matchesAccess =
+        accessFilter === 'all' ||
+        (accessFilter === 'active' && user.is_active) ||
+        (accessFilter === 'inactive' && !user.is_active)
+
+      const has2FA = user.is_totp_enabled || user.is_email_2fa_enabled
+      const matches2FA =
+        twoFactorFilter === 'all' ||
+        (twoFactorFilter === 'with-2fa' && has2FA) ||
+        (twoFactorFilter === 'without-2fa' && !has2FA)
+
+      return matchesSearch && matchesRole && matchesAccess && matches2FA
+    })
+  }, [usersQuery.data, search, roleFilter, accessFilter, twoFactorFilter])
+
+  useEffect(() => {
+    setPage(1)
+  }, [search, roleFilter, accessFilter, twoFactorFilter])
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE))
+
+  const paginatedUsers = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE
+    return filteredUsers.slice(start, start + PAGE_SIZE)
+  }, [filteredUsers, page])
+
+  const exportRows = useMemo(() => {
+    return filteredUsers.map((user) => ({
+      CI: user.ci,
+      Usuario: user.username,
+      Correo: user.email,
+      Rol: user.rol_id ? rolesMap.get(user.rol_id) ?? `Rol #${user.rol_id}` : '—',
+      Estado: user.estado_usuario_id
+        ? estadosMap.get(user.estado_usuario_id) ?? `Estado #${user.estado_usuario_id}`
+        : '—',
+      Activo: user.is_active ? 'Sí' : 'No',
+      Superusuario: user.is_superuser ? 'Sí' : 'No',
+      '2FA TOTP': user.is_totp_enabled ? 'Sí' : 'No',
+      '2FA Correo': user.is_email_2fa_enabled ? 'Sí' : 'No',
+      'Último acceso': user.ultimo_acceso ? new Date(user.ultimo_acceso).toLocaleString() : 'Nunca',
+    }))
+  }, [filteredUsers, rolesMap, estadosMap])
+
+  function downloadBlob(content: BlobPart, fileName: string, type: string) {
+    const blob = new Blob([content], { type })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = fileName
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function handleExportCSV() {
+    const csv = Papa.unparse(exportRows)
+    downloadBlob(csv, 'usuarios-filtrados.csv', 'text/csv;charset=utf-8;')
+  }
+
+  async function handleExportExcel() {
+    const workbook = new ExcelJS.Workbook()
+    const worksheet = workbook.addWorksheet('Usuarios')
+
+    worksheet.columns = [
+      { header: 'CI', key: 'CI', width: 16 },
+      { header: 'Usuario', key: 'Usuario', width: 22 },
+      { header: 'Correo', key: 'Correo', width: 32 },
+      { header: 'Rol', key: 'Rol', width: 20 },
+      { header: 'Estado', key: 'Estado', width: 20 },
+      { header: 'Activo', key: 'Activo', width: 12 },
+      { header: 'Superusuario', key: 'Superusuario', width: 16 },
+      { header: '2FA TOTP', key: '2FA TOTP', width: 14 },
+      { header: '2FA Correo', key: '2FA Correo', width: 16 },
+      { header: 'Último acceso', key: 'Último acceso', width: 24 },
+    ]
+
+    exportRows.forEach((row) => {
+      worksheet.addRow(row)
+    })
+
+    const headerRow = worksheet.getRow(1)
+    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+    headerRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: '10B981' },
+    }
+    headerRow.alignment = { vertical: 'middle', horizontal: 'center' }
+
+    worksheet.eachRow((row, rowNumber) => {
+      row.alignment = { vertical: 'middle' }
+
+      if (rowNumber > 1) {
+        row.eachCell((cell) => {
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'E5E7EB' } },
+            left: { style: 'thin', color: { argb: 'E5E7EB' } },
+            bottom: { style: 'thin', color: { argb: 'E5E7EB' } },
+            right: { style: 'thin', color: { argb: 'E5E7EB' } },
+          }
+        })
+      }
+    })
+
+    const buffer = await workbook.xlsx.writeBuffer()
+
+    downloadBlob(
+      buffer,
+      'usuarios-filtrados.xlsx',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+  }
+
+  function handleExportPDF() {
+    const doc = new jsPDF('landscape', 'pt', 'a4')
+    doc.setFontSize(16)
+    doc.text('Usuarios filtrados', 40, 30)
+
+    autoTable(doc, {
+      startY: 50,
+      head: [[
+        'CI',
+        'Usuario',
+        'Correo',
+        'Rol',
+        'Estado',
+        'Activo',
+        'Superusuario',
+        '2FA TOTP',
+        '2FA Correo',
+        'Último acceso',
+      ]],
+      body: exportRows.map((row) => [
+        row.CI,
+        row.Usuario,
+        row.Correo,
+        row.Rol,
+        row.Estado,
+        row.Activo,
+        row.Superusuario,
+        row['2FA TOTP'],
+        row['2FA Correo'],
+        row['Último acceso'],
+      ]),
+      styles: {
+        fontSize: 8,
+        cellPadding: 4,
+      },
+      headStyles: {
+        fillColor: [16, 185, 129],
+      },
+    })
+
+    doc.save('usuarios-filtrados.pdf')
+  }
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending
 
@@ -497,6 +756,21 @@ export default function UsuariosPage() {
               Recargar
             </Button>
 
+            <Button variant="outline" className="rounded-2xl" onClick={handleExportCSV}>
+              <Download className="mr-2 h-4 w-4" />
+              CSV
+            </Button>
+
+            <Button variant="outline" className="rounded-2xl" onClick={handleExportExcel}>
+              <Download className="mr-2 h-4 w-4" />
+              Excel
+            </Button>
+
+            <Button variant="outline" className="rounded-2xl" onClick={handleExportPDF}>
+              <Download className="mr-2 h-4 w-4" />
+              PDF
+            </Button>
+
             <Dialog
               open={open}
               onOpenChange={(value) => {
@@ -533,62 +807,109 @@ export default function UsuariosPage() {
                 <form onSubmit={handleSubmit} className="space-y-5">
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="ci">CI</Label>
+                      <Label htmlFor="ci" className={formErrors.ci ? 'text-rose-600' : ''}>
+                        CI {!editingUser && '*'}
+                      </Label>
                       <Input
                         id="ci"
                         value={form.ci}
-                        onChange={(e) => setForm((prev) => ({ ...prev, ci: e.target.value }))}
+                        onChange={(e) => {
+                          setForm((prev) => ({ ...prev, ci: e.target.value }))
+                          if (formErrors.ci) setFormErrors((prev) => ({ ...prev, ci: undefined }))
+                        }}
                         placeholder="1234567"
                         disabled={!!editingUser}
-                        className="rounded-2xl border-border/70 bg-background"
+                        className={`rounded-2xl border-border/70 bg-background ${formErrors.ci ? 'border-rose-500 focus-visible:ring-rose-500' : ''}`}
                       />
+                      {formErrors.ci && (
+                        <p className="text-xs text-rose-600 flex items-center gap-1 mt-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {formErrors.ci}
+                        </p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="email">Correo</Label>
+                      <Label htmlFor="email" className={formErrors.email ? 'text-rose-600' : ''}>
+                        Correo *
+                      </Label>
                       <Input
                         id="email"
                         type="email"
                         value={form.email}
-                        onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                        onChange={(e) => {
+                          setForm((prev) => ({ ...prev, email: e.target.value }))
+                          if (formErrors.email) setFormErrors((prev) => ({ ...prev, email: undefined }))
+                        }}
                         placeholder="usuario@atina.bo"
-                        className="rounded-2xl border-border/70 bg-background"
+                        className={`rounded-2xl border-border/70 bg-background ${formErrors.email ? 'border-rose-500 focus-visible:ring-rose-500' : ''}`}
                       />
+                      {formErrors.email && (
+                        <p className="text-xs text-rose-600 flex items-center gap-1 mt-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {formErrors.email}
+                        </p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="username">Usuario</Label>
+                      <Label htmlFor="username" className={formErrors.username ? 'text-rose-600' : ''}>
+                        Usuario *
+                      </Label>
                       <Input
                         id="username"
                         value={form.username}
-                        onChange={(e) => setForm((prev) => ({ ...prev, username: e.target.value }))}
+                        onChange={(e) => {
+                          setForm((prev) => ({ ...prev, username: e.target.value }))
+                          if (formErrors.username) setFormErrors((prev) => ({ ...prev, username: undefined }))
+                        }}
                         placeholder="jperez"
-                        className="rounded-2xl border-border/70 bg-background"
+                        className={`rounded-2xl border-border/70 bg-background ${formErrors.username ? 'border-rose-500 focus-visible:ring-rose-500' : ''}`}
                       />
+                      {formErrors.username && (
+                        <p className="text-xs text-rose-600 flex items-center gap-1 mt-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {formErrors.username}
+                        </p>
+                      )}
                     </div>
 
                     <div className="space-y-2 md:col-span-2">
-                      <Label htmlFor="password">
-                        {editingUser ? 'Nueva contraseña (opcional)' : 'Contraseña'}
+                      <Label htmlFor="password" className={formErrors.password ? 'text-rose-600' : ''}>
+                        {editingUser ? 'Nueva contraseña (opcional)' : 'Contraseña *'}
                       </Label>
                       <Input
                         id="password"
                         type="password"
                         value={form.password}
-                        onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
-                        placeholder="Mínimo 8 caracteres"
-                        className="rounded-2xl border-border/70 bg-background"
+                        onChange={(e) => {
+                          setForm((prev) => ({ ...prev, password: e.target.value }))
+                          if (formErrors.password) setFormErrors((prev) => ({ ...prev, password: undefined }))
+                        }}
+                        placeholder="Mínimo 6 caracteres"
+                        className={`rounded-2xl border-border/70 bg-background ${formErrors.password ? 'border-rose-500 focus-visible:ring-rose-500' : ''}`}
                       />
+                      {formErrors.password && (
+                        <p className="text-xs text-rose-600 flex items-center gap-1 mt-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {formErrors.password}
+                        </p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Rol</Label>
+                      <Label className={formErrors.rol_id ? 'text-rose-600' : ''}>
+                        Rol *
+                      </Label>
                       <Select
                         value={form.rol_id}
-                        onValueChange={(value) => setForm((prev) => ({ ...prev, rol_id: value }))}
+                        onValueChange={(value) => {
+                          setForm((prev) => ({ ...prev, rol_id: value }))
+                          if (formErrors.rol_id) setFormErrors((prev) => ({ ...prev, rol_id: undefined }))
+                        }}
                         disabled={rolesQuery.isLoading || !!rolesQuery.error}
                       >
-                        <SelectTrigger className="rounded-2xl border-border/70 bg-background">
+                        <SelectTrigger className={`rounded-2xl border-border/70 bg-background ${formErrors.rol_id ? 'border-rose-500' : ''}`}>
                           <SelectValue
                             placeholder={
                               rolesQuery.isLoading
@@ -607,18 +928,50 @@ export default function UsuariosPage() {
                           ))}
                         </SelectContent>
                       </Select>
+                      {formErrors.rol_id && (
+                        <p className="text-xs text-rose-600 flex items-center gap-1 mt-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {formErrors.rol_id}
+                        </p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Estado</Label>
+                      <Label className={formErrors.estado_usuario_id ? 'text-rose-600' : ''}>
+                        Estado de acceso *
+                      </Label>
                       <Select
-                        value={form.estado_usuario_id}
-                        onValueChange={(value) =>
-                          setForm((prev) => ({ ...prev, estado_usuario_id: value }))
+                        value={accessStatusValue}
+                        onValueChange={(value) => {
+                          if (value === 'active') {
+                            setForm((prev) => ({
+                              ...prev,
+                              is_active: true,
+                              estado_usuario_id: activeEstado
+                                ? String(activeEstado.id)
+                                : prev.estado_usuario_id,
+                            }))
+                          } else {
+                            setForm((prev) => ({
+                              ...prev,
+                              is_active: false,
+                              estado_usuario_id: inactiveEstado
+                                ? String(inactiveEstado.id)
+                                : prev.estado_usuario_id,
+                            }))
+                          }
+                          if (formErrors.estado_usuario_id) {
+                            setFormErrors((prev) => ({ ...prev, estado_usuario_id: undefined }))
+                          }
+                        }}
+                        disabled={
+                          estadosQuery.isLoading ||
+                          !!estadosQuery.error ||
+                          !activeEstado ||
+                          !inactiveEstado
                         }
-                        disabled={estadosQuery.isLoading || !!estadosQuery.error}
                       >
-                        <SelectTrigger className="rounded-2xl border-border/70 bg-background">
+                        <SelectTrigger className={`rounded-2xl border-border/70 bg-background ${formErrors.estado_usuario_id ? 'border-rose-500' : ''}`}>
                           <SelectValue
                             placeholder={
                               estadosQuery.isLoading
@@ -630,35 +983,20 @@ export default function UsuariosPage() {
                           />
                         </SelectTrigger>
                         <SelectContent>
-                          {(estadosQuery.data ?? []).map((estado) => (
-                            <SelectItem key={estado.id} value={String(estado.id)}>
-                              {estado.nombre}
-                            </SelectItem>
-                          ))}
+                          <SelectItem value="active">Activo</SelectItem>
+                          <SelectItem value="inactive">Inactivo</SelectItem>
                         </SelectContent>
                       </Select>
+                      {formErrors.estado_usuario_id && (
+                        <p className="text-xs text-rose-600 flex items-center gap-1 mt-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {formErrors.estado_usuario_id}
+                        </p>
+                      )}
                     </div>
                   </div>
 
                   <div className="grid gap-4 md:grid-cols-2">
-                    <ToggleCard
-                      checked={form.is_active}
-                      onCheckedChange={(checked) =>
-                        setForm((prev) => ({ ...prev, is_active: checked }))
-                      }
-                      label="Usuario activo"
-                      helper="Permite el acceso operativo al sistema."
-                    />
-
-                    <ToggleCard
-                      checked={form.is_superuser}
-                      onCheckedChange={(checked) =>
-                        setForm((prev) => ({ ...prev, is_superuser: checked }))
-                      }
-                      label="Superusuario"
-                      helper="Acceso ampliado y privilegios administrativos."
-                    />
-
                     <ToggleCard
                       checked={form.is_totp_enabled}
                       onCheckedChange={(checked) =>
@@ -685,7 +1023,12 @@ export default function UsuariosPage() {
                   )}
 
                   <div className="flex justify-end gap-2 pt-2">
-                    <Button type="button" variant="outline" onClick={resetFormAndClose} className="rounded-2xl">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={resetFormAndClose}
+                      className="rounded-2xl"
+                    >
                       Cancelar
                     </Button>
                     <Button
@@ -695,7 +1038,9 @@ export default function UsuariosPage() {
                         rolesQuery.isLoading ||
                         estadosQuery.isLoading ||
                         !!rolesQuery.error ||
-                        !!estadosQuery.error
+                        !!estadosQuery.error ||
+                        !activeEstado ||
+                        !inactiveEstado
                       }
                       className="rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700"
                     >
@@ -723,19 +1068,75 @@ export default function UsuariosPage() {
 
       <SurfaceCard
         title="Listado de usuarios"
-        description="Busca por CI, usuario o correo y administra cada registro desde la tabla."
+        description="Busca por CI, usuario o correo, filtra en tiempo real y exporta la vista actual."
         action={
-          <div className="relative w-full md:w-80">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por CI, usuario o correo..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-11 rounded-2xl border-border/70 bg-background pl-9"
-            />
+          <div className="flex w-full flex-col gap-3 xl:flex-row xl:items-center">
+            <div className="relative w-full xl:w-80">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por CI, usuario o correo..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-11 rounded-2xl border-border/70 bg-background pl-9"
+              />
+            </div>
+
+            <Select value={roleFilter} onValueChange={(value) => setRoleFilter(value)}>
+              <SelectTrigger className="h-11 w-full rounded-2xl border-border/70 bg-background xl:w-52">
+                <SelectValue placeholder="Filtrar por rol" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los roles</SelectItem>
+                {(rolesQuery.data ?? []).map((role) => (
+                  <SelectItem key={role.id} value={String(role.id)}>
+                    {role.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={accessFilter} onValueChange={(value: AccessFilterValue) => setAccessFilter(value)}>
+              <SelectTrigger className="h-11 w-full rounded-2xl border-border/70 bg-background xl:w-44">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="active">Activos</SelectItem>
+                <SelectItem value="inactive">Inactivos</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={twoFactorFilter} onValueChange={(value: TwoFactorFilterValue) => setTwoFactorFilter(value)}>
+              <SelectTrigger className="h-11 w-full rounded-2xl border-border/70 bg-background xl:w-44">
+                <SelectValue placeholder="2FA" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="with-2fa">Con 2FA</SelectItem>
+                <SelectItem value="without-2fa">Sin 2FA</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         }
       >
+        <div className="mb-4 flex flex-wrap gap-2">
+          <Badge variant="outline" className="rounded-full">
+            Resultados: {filteredUsers.length}
+          </Badge>
+          <Button variant="outline" className="rounded-2xl" onClick={handleExportCSV}>
+            <Download className="mr-2 h-4 w-4" />
+            Exportar CSV
+          </Button>
+          <Button variant="outline" className="rounded-2xl" onClick={handleExportExcel}>
+            <Download className="mr-2 h-4 w-4" />
+            Exportar Excel
+          </Button>
+          <Button variant="outline" className="rounded-2xl" onClick={handleExportPDF}>
+            <Download className="mr-2 h-4 w-4" />
+            Exportar PDF
+          </Button>
+        </div>
+
         <div className="overflow-hidden rounded-[22px] border border-border/70">
           <Table>
             <TableHeader>

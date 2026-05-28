@@ -12,7 +12,12 @@ import {
   Ruler,
   Sprout,
   Info,
+  Download,
 } from 'lucide-react'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import ExcelJS from 'exceljs'
+import Papa from 'papaparse'
 
 import { invernaderosService } from '@/services/invernaderos.service'
 import { ubicacionesService } from '@/services/ubicaciones.service'
@@ -195,6 +200,16 @@ function formatDateTime(value?: string | null) {
   return date.toLocaleString()
 }
 
+function downloadBlob(content: BlobPart, fileName: string, type: string) {
+  const blob = new Blob([content], { type })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function InvernaderosPage() {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
@@ -202,6 +217,11 @@ export default function InvernaderosPage() {
   const [form, setForm] = useState<FormState>(initialForm)
   const [search, setSearch] = useState('')
   const [apiError, setApiError] = useState<string | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
+
+  // Filtros en tiempo real
+  const [filtroUbicacion, setFiltroUbicacion] = useState<string>('all')
+  const [filtroEstado, setFiltroEstado] = useState<string>('all')
 
   const invernaderosQuery = useQuery({
     queryKey: ['invernaderos'],
@@ -321,19 +341,35 @@ export default function InvernaderosPage() {
   const invernaderos = invernaderosQuery.data ?? []
   const isSubmitting = createMutation.isPending || updateMutation.isPending
 
+  // Aplicar filtros en tiempo real (búsqueda + ubicación + estado)
   const filteredItems = useMemo(() => {
-    const term = search.toLowerCase().trim()
-    if (!term) return invernaderos
+    let items = invernaderos
 
-    return invernaderos.filter(
-      (item) =>
-        String(item.id).includes(term) ||
-        item.codigo.toLowerCase().includes(term) ||
-        item.nombre.toLowerCase().includes(term) ||
-        (item.ubicacion_nombre ?? '').toLowerCase().includes(term) ||
-        (item.estado_invernadero_nombre ?? '').toLowerCase().includes(term)
-    )
-  }, [invernaderos, search])
+    // Búsqueda por texto
+    const term = search.toLowerCase().trim()
+    if (term) {
+      items = items.filter(
+        (item) =>
+          String(item.id).includes(term) ||
+          item.codigo.toLowerCase().includes(term) ||
+          item.nombre.toLowerCase().includes(term) ||
+          (item.ubicacion_nombre ?? '').toLowerCase().includes(term) ||
+          (item.estado_invernadero_nombre ?? '').toLowerCase().includes(term)
+      )
+    }
+
+    // Filtro por ubicación
+    if (filtroUbicacion !== 'all') {
+      items = items.filter((item) => String(item.ubicacion_id) === filtroUbicacion)
+    }
+
+    // Filtro por estado
+    if (filtroEstado !== 'all') {
+      items = items.filter((item) => String(item.estado_invernadero_id) === filtroEstado)
+    }
+
+    return items
+  }, [invernaderos, search, filtroUbicacion, filtroEstado])
 
   const totalInvernaderos = invernaderos.length
   const activos = invernaderos.filter((item) => {
@@ -353,6 +389,108 @@ export default function InvernaderosPage() {
 
   const areaTotal = invernaderos.reduce((acc, item) => acc + Number(item.area_m2 ?? 0), 0)
   const prioridadesAltas = invernaderos.filter((item) => Number(item.prioridad_riego) >= 7).length
+
+  // Preparar datos para exportación (solo los filtrados)
+  const exportRows = useMemo(() => {
+    return filteredItems.map((item) => {
+      const ubicacion = ubicaciones.find((u) => u.id === item.ubicacion_id)
+      const estado = estadosInvernadero.find((e: CatalogoOption) => e.id === item.estado_invernadero_id)
+
+      return {
+        ID: item.id,
+        Código: item.codigo,
+        Nombre: item.nombre,
+        Ubicación: ubicacion?.nombre ?? item.ubicacion_nombre ?? `ID: ${item.ubicacion_id}`,
+        'Área (m²)': item.area_m2,
+        'Prioridad Riego': item.prioridad_riego,
+        Estado: estado?.nombre ?? item.estado_invernadero_nombre ?? `ID: ${item.estado_invernadero_id}`,
+        Descripción: item.descripcion || '—',
+        Creado: formatDateTime(item.creado_en),
+      }
+    })
+  }, [filteredItems, ubicaciones, estadosInvernadero])
+
+  // Funciones de exportación
+  async function handleExportCSV() {
+    try {
+      setIsExporting(true)
+      const csv = Papa.unparse(exportRows)
+      downloadBlob(csv, `invernaderos-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.csv`, 'text/csv;charset=utf-8;')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  async function handleExportExcel() {
+    try {
+      setIsExporting(true)
+      const workbook = new ExcelJS.Workbook()
+      const worksheet = workbook.addWorksheet('Invernaderos')
+
+      worksheet.columns = Object.keys(exportRows[0] || {}).map((key) => ({
+        header: key,
+        key,
+        width: Math.max(16, key.length + 4),
+      }))
+
+      exportRows.forEach((row) => worksheet.addRow(row))
+
+      const headerRow = worksheet.getRow(1)
+      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: '10B981' },
+      }
+      headerRow.alignment = { vertical: 'middle', horizontal: 'center' }
+
+      worksheet.eachRow((row, rowNumber) => {
+        row.alignment = { vertical: 'middle' }
+        if (rowNumber > 1) {
+          row.eachCell((cell) => {
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'E5E7EB' } },
+              left: { style: 'thin', color: { argb: 'E5E7EB' } },
+              bottom: { style: 'thin', color: { argb: 'E5E7EB' } },
+              right: { style: 'thin', color: { argb: 'E5E7EB' } },
+            }
+          })
+        }
+      })
+
+      const buffer = await workbook.xlsx.writeBuffer()
+      downloadBlob(buffer, `invernaderos-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  async function handleExportPDF() {
+    try {
+      setIsExporting(true)
+      const doc = new jsPDF('landscape', 'pt', 'a4')
+      doc.setFontSize(16)
+      doc.text('Listado de Invernaderos', 40, 30)
+      doc.setFontSize(10)
+      doc.text(`Generado: ${new Date().toLocaleString()}`, 40, 50)
+
+      const headers = Object.keys(exportRows[0] || {})
+      const body = exportRows.map((row) => Object.values(row).map((v) => String(v)))
+
+      autoTable(doc, {
+        startY: 70,
+        head: [headers],
+        body,
+        styles: { fontSize: 8, cellPadding: 4 },
+        headStyles: { fillColor: [16, 185, 129] },
+        margin: { left: 40, right: 40 },
+      })
+
+      doc.save(`invernaderos-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.pdf`)
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   const stats: StatCard[] = [
     {
@@ -379,7 +517,7 @@ export default function InvernaderosPage() {
     {
       title: 'Prioridad alta',
       value: String(prioridadesAltas),
-      helper: 'Con prioridad de riego elevada',
+      helper: 'Con prioridad de riego elevada (≥7)',
       icon: Info,
       tone: 'violet',
     },
@@ -407,7 +545,7 @@ export default function InvernaderosPage() {
             </p>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
               className="rounded-2xl"
@@ -419,6 +557,36 @@ export default function InvernaderosPage() {
             >
               <RefreshCw className="mr-2 h-4 w-4" />
               Recargar
+            </Button>
+
+            <Button
+              variant="outline"
+              className="rounded-2xl"
+              onClick={handleExportCSV}
+              disabled={isExporting || filteredItems.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              CSV
+            </Button>
+
+            <Button
+              variant="outline"
+              className="rounded-2xl"
+              onClick={handleExportExcel}
+              disabled={isExporting || filteredItems.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Excel
+            </Button>
+
+            <Button
+              variant="outline"
+              className="rounded-2xl"
+              onClick={handleExportPDF}
+              disabled={isExporting || filteredItems.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              PDF
             </Button>
 
             <Dialog
@@ -628,16 +796,47 @@ export default function InvernaderosPage() {
       <section>
         <SurfaceCard
           title="Listado de invernaderos"
-          description="Busca por id, código, nombre, ubicación o estado y administra cada registro."
+          description="Filtra por código, nombre, ubicación o estado en tiempo real."
           action={
-            <div className="relative w-full md:w-96">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por id, código, nombre, ubicación o estado..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="h-11 rounded-2xl border-border/70 bg-background pl-9"
-              />
+            <div className="flex flex-col gap-3 w-full md:flex-row md:items-center">
+              <div className="relative w-full md:w-80">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por código o nombre..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="h-11 rounded-2xl border-border/70 bg-background pl-9"
+                />
+              </div>
+              <Select value={filtroUbicacion} onValueChange={setFiltroUbicacion}>
+                <SelectTrigger className="h-11 rounded-2xl border-border/70 bg-background w-full md:w-48">
+                  <SelectValue placeholder="Filtrar por ubicación" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las ubicaciones</SelectItem>
+                  {ubicaciones.map((ubi: UbicacionResponse) => (
+                    <SelectItem key={ubi.id} value={String(ubi.id)}>
+                      {ubi.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filtroEstado} onValueChange={setFiltroEstado}>
+                <SelectTrigger className="h-11 rounded-2xl border-border/70 bg-background w-full md:w-48">
+                  <SelectValue placeholder="Filtrar por estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los estados</SelectItem>
+                  {estadosInvernadero.map((est: CatalogoOption) => (
+                    <SelectItem key={est.id} value={String(est.id)}>
+                      {est.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="text-sm text-muted-foreground whitespace-nowrap">
+                {filteredItems.length} resultado{filteredItems.length === 1 ? '' : 's'}
+              </div>
             </div>
           }
         >
@@ -685,7 +884,7 @@ export default function InvernaderosPage() {
                 ) : filteredItems.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
-                      No se encontraron invernaderos.
+                      No se encontraron invernaderos con los filtros aplicados.
                     </TableCell>
                   </TableRow>
                 ) : (

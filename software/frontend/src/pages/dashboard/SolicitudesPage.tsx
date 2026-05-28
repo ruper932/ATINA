@@ -5,21 +5,20 @@ import {
   ClipboardList,
   Eye,
   FileText,
-  MapPin,
   Plus,
-  ShieldCheck,
   AlertCircle,
   CheckCircle2,
   XCircle,
   Clock,
-  Users,
-  Building2,
+  UserCheck,
   Calendar,
   MessageSquare,
   FileCheck,
-  UserCheck,
   History,
   ExternalLink,
+  Download,
+  FileSpreadsheet,
+  FileJson,
 } from "lucide-react";
 
 import { solicitudesService } from "@/services/solicitudes.service";
@@ -37,15 +36,7 @@ import type {
   TipoRecursoSolicitud,
 } from "@/types/solicitud";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -73,7 +64,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type CreateFormValues = {
   tipo_recurso: TipoRecursoSolicitud;
@@ -156,6 +146,123 @@ function normalizeError(error: unknown) {
   return "Ocurrió un error inesperado";
 }
 
+// Función para exportar a CSV
+function exportToCSV(data: SolicitudMovimiento[], filename: string) {
+  const headers = ["ID", "Tipo", "Recurso ID", "Solicitante", "Estado", "Fecha creación"];
+  const rows = data.map((item) => [
+    item.id,
+    tipoLabel[item.tipo_recurso],
+    item.recurso_id,
+    item.solicitante_ci,
+    estadoConfig[item.estado].label,
+    formatDate(item.fecha_creacion),
+  ]);
+
+  const csvContent = [headers, ...rows]
+    .map((row) => row.map((cell) => `"${cell}"`).join(","))
+    .join("\n");
+
+  const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  link.href = url;
+  link.setAttribute("download", `${filename}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+// Función para exportar a Excel (XLSX via CSV)
+function exportToExcel(data: SolicitudMovimiento[], filename: string) {
+  const headers = ["ID", "Tipo", "Recurso ID", "Solicitante", "Estado", "Fecha creación"];
+  const rows = data.map((item) => [
+    item.id,
+    tipoLabel[item.tipo_recurso],
+    item.recurso_id,
+    item.solicitante_ci,
+    estadoConfig[item.estado].label,
+    formatDate(item.fecha_creacion),
+  ]);
+
+  const csvContent = [headers, ...rows]
+    .map((row) => row.map((cell) => `"${cell}"`).join(","))
+    .join("\n");
+
+  const blob = new Blob(["\uFEFF" + csvContent], { type: "application/vnd.ms-excel" });
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  link.href = url;
+  link.setAttribute("download", `${filename}.xls`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+// Función para exportar a PDF (usando window.print)
+function exportToPDF(data: SolicitudMovimiento[]) {
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) return;
+
+  const styles = `
+    <style>
+      body { font-family: system-ui, -apple-system, sans-serif; margin: 2rem; }
+      h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem; }
+      p { color: #6b7280; margin-bottom: 1.5rem; }
+      table { width: 100%; border-collapse: collapse; }
+      th { text-align: left; padding: 0.75rem; background-color: #f3f4f6; border-bottom: 2px solid #e5e7eb; font-weight: 600; }
+      td { padding: 0.75rem; border-bottom: 1px solid #e5e7eb; }
+      .badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; }
+      .badge-pendiente { background: #fef3c7; color: #b45309; }
+      .badge-en_revision { background: #dbeafe; color: #1d4ed8; }
+      .badge-aprobada { background: #d1fae5; color: #047857; }
+      .badge-rechazada { background: #ffe4e6; color: #e11d48; }
+      .badge-cancelada { background: #f4f4f5; color: #52525b; }
+    </style>
+  `;
+
+  const tableRows = data
+    .map(
+      (item) => `
+      <tr>
+        <td>${item.id}</td>
+        <td>${tipoLabel[item.tipo_recurso]}</td>
+        <td>${item.recurso_id}</td>
+        <td>${item.solicitante_ci}</td>
+        <td><span class="badge badge-${item.estado}">${estadoConfig[item.estado].label}</span></td>
+        <td>${formatDate(item.fecha_creacion)}</td>
+      </tr>
+    `
+    )
+    .join("");
+
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Reporte de Solicitudes</title>
+        ${styles}
+      </head>
+      <body>
+        <h1>Reporte de Solicitudes de Reubicación</h1>
+        <p>Generado el ${new Date().toLocaleString()}</p>
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Tipo</th><th>Recurso</th><th>Solicitante</th><th>Estado</th><th>Fecha creación</th></tr>
+          </thead>
+          <tbody>
+            ${tableRows}
+          </tbody>
+        </table>
+      </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+  printWindow.print();
+}
+
 export default function SolicitudesPage() {
   const queryClient = useQueryClient();
   const auth = useAuth() as any;
@@ -181,6 +288,7 @@ export default function SolicitudesPage() {
     "";
 
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoSolicitud | "todos">("todos");
+  const [searchTerm, setSearchTerm] = useState("");
   const [selectedSolicitud, setSelectedSolicitud] = useState<SolicitudMovimiento | null>(null);
   const [openCreate, setOpenCreate] = useState(false);
   const [openDetail, setOpenDetail] = useState(false);
@@ -221,7 +329,7 @@ export default function SolicitudesPage() {
     queryFn: () =>
       solicitudesService.getAll({
         estado: estadoFiltro === "todos" ? undefined : estadoFiltro,
-        limit: 200,
+        limit: 500,
       }),
   });
 
@@ -261,15 +369,36 @@ export default function SolicitudesPage() {
   const selectedSolicitudDetail: SolicitudMovimientoDetail | null =
     detalleSolicitudQuery.data ?? null;
 
-  const stats = useMemo(() => {
+  // Filtrado en tiempo real
+  const filteredSolicitudes = useMemo(() => {
     const items = solicitudes;
+    const term = searchTerm.toLowerCase().trim();
+    
+    if (!term) return items;
+    
+    return items.filter((item) => {
+      return (
+        String(item.id).includes(term) ||
+        tipoLabel[item.tipo_recurso].toLowerCase().includes(term) ||
+        String(item.recurso_id).includes(term) ||
+        item.solicitante_ci.toLowerCase().includes(term) ||
+        estadoConfig[item.estado].label.toLowerCase().includes(term) ||
+        formatDate(item.fecha_creacion).toLowerCase().includes(term)
+      );
+    });
+  }, [solicitudes, searchTerm]);
+
+  const stats = useMemo(() => {
+    const items = filteredSolicitudes;
     return {
       total: items.length,
       pendiente: items.filter((s) => s.estado === "pendiente").length,
       en_revision: items.filter((s) => s.estado === "en_revision").length,
       aprobada: items.filter((s) => s.estado === "aprobada").length,
+      rechazada: items.filter((s) => s.estado === "rechazada").length,
+      cancelada: items.filter((s) => s.estado === "cancelada").length,
     };
-  }, [solicitudes]);
+  }, [filteredSolicitudes]);
 
   const crearMutation = useMutation({
     mutationFn: (payload: CrearSolicitudPayload) => solicitudesService.create(payload),
@@ -361,6 +490,18 @@ export default function SolicitudesPage() {
   const canCancel = (s: SolicitudMovimiento) =>
     isDocente && s.estado === "pendiente" && s.solicitante_ci === currentCi;
 
+  const handleExportCSV = () => {
+    exportToCSV(filteredSolicitudes, `solicitudes_${new Date().toISOString().split("T")[0]}`);
+  };
+
+  const handleExportExcel = () => {
+    exportToExcel(filteredSolicitudes, `solicitudes_${new Date().toISOString().split("T")[0]}`);
+  };
+
+  const handleExportPDF = () => {
+    exportToPDF(filteredSolicitudes);
+  };
+
   return (
     <div className="space-y-6 p-4 md:p-6">
       <section className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
@@ -369,195 +510,240 @@ export default function SolicitudesPage() {
             <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
               Solicitudes de reubicación
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Gestiona solicitudes para atrapanieblas y fuentes de agua
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              Gestiona el flujo de trabajo para la reubicación de atrapanieblas y fuentes de agua. 
+              Los docentes crean solicitudes, el equipo técnico las revisa y aprueba, 
+              manteniendo un historial completo de trazabilidad.
             </p>
           </div>
 
-          {isDocente && (
-            <Dialog
-              open={openCreate}
-              onOpenChange={(value) => {
-                setOpenCreate(value);
-                if (!value) {
-                  createForm.reset({
-                    tipo_recurso: "atrapaniebla",
-                    recurso_id: undefined,
-                    ubicacion_destino_id: undefined,
-                    ubicacion_destino_propuesta: "",
-                    motivo: "",
-                    pdf_url: "",
-                  });
-                }
-              }}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleExportCSV}
+              className="rounded-xl border-border/70"
             >
-              <DialogTrigger asChild>
-                <Button className="rounded-xl">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Nueva solicitud
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-h-[90vh] overflow-y-auto border-border/70 sm:max-w-2xl">
-                <DialogHeader className="space-y-2 border-b border-border/70 pb-4">
-                  <DialogTitle className="text-xl">Nueva solicitud</DialogTitle>
-                  <DialogDescription>
-                    Registra una solicitud formal de reubicación
-                  </DialogDescription>
-                </DialogHeader>
+              <Download className="mr-2 h-4 w-4" />
+              CSV
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleExportExcel}
+              className="rounded-xl border-border/70"
+            >
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              Excel
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleExportPDF}
+              className="rounded-xl border-border/70"
+            >
+              <FileJson className="mr-2 h-4 w-4" />
+              PDF
+            </Button>
 
-                <form className="space-y-6 pt-2" onSubmit={onCreateSubmit}>
-                  <div className="grid gap-5 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">Tipo de recurso</Label>
-                      <Select
-                        value={createForm.watch("tipo_recurso")}
-                        onValueChange={(value) =>
-                          createForm.setValue("tipo_recurso", value as TipoRecursoSolicitud)
-                        }
-                      >
-                        <SelectTrigger className="h-11 rounded-xl border-border/70">
-                          <SelectValue placeholder="Selecciona tipo" />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl border-border/70">
-                          <SelectItem value="atrapaniebla">Atrapaniebla</SelectItem>
-                          <SelectItem value="fuenteagua">Fuente de agua</SelectItem>
-                        </SelectContent>
-                      </Select>
+            {isDocente && (
+              <Dialog
+                open={openCreate}
+                onOpenChange={(value) => {
+                  setOpenCreate(value);
+                  if (!value) {
+                    createForm.reset({
+                      tipo_recurso: "atrapaniebla",
+                      recurso_id: undefined,
+                      ubicacion_destino_id: undefined,
+                      ubicacion_destino_propuesta: "",
+                      motivo: "",
+                      pdf_url: "",
+                    });
+                  }
+                }}
+              >
+                <DialogTrigger asChild>
+                  <Button className="rounded-xl">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Nueva solicitud
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-h-[90vh] overflow-y-auto border-border/70 sm:max-w-2xl">
+                  <DialogHeader className="space-y-2 border-b border-border/70 pb-4">
+                    <DialogTitle className="text-xl">Nueva solicitud</DialogTitle>
+                    <DialogDescription>
+                      Registra una solicitud formal de reubicación
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <form className="space-y-6 pt-2" onSubmit={onCreateSubmit}>
+                    <div className="grid gap-5 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Tipo de recurso</Label>
+                        <Select
+                          value={createForm.watch("tipo_recurso")}
+                          onValueChange={(value) =>
+                            createForm.setValue("tipo_recurso", value as TipoRecursoSolicitud)
+                          }
+                        >
+                          <SelectTrigger className="h-11 rounded-xl border-border/70">
+                            <SelectValue placeholder="Selecciona tipo" />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-xl border-border/70">
+                            <SelectItem value="atrapaniebla">Atrapaniebla</SelectItem>
+                            <SelectItem value="fuenteagua">Fuente de agua</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Recurso</Label>
+                        <Select
+                          value={
+                            createForm.watch("recurso_id")
+                              ? String(createForm.watch("recurso_id"))
+                              : undefined
+                          }
+                          onValueChange={(value) => createForm.setValue("recurso_id", Number(value))}
+                        >
+                          <SelectTrigger className="h-11 rounded-xl border-border/70">
+                            <SelectValue placeholder="Selecciona recurso" />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-xl border-border/70">
+                            {recursos.map((item: any) => (
+                              <SelectItem key={item.id} value={String(item.id)}>
+                                {item.codigo ?? item.nombre ?? `Recurso #${item.id}`}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-5 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Ubicación destino oficial</Label>
+                        <Select
+                          value={
+                            createForm.watch("ubicacion_destino_id")
+                              ? String(createForm.watch("ubicacion_destino_id"))
+                              : undefined
+                          }
+                          onValueChange={(value) =>
+                            createForm.setValue("ubicacion_destino_id", Number(value))
+                          }
+                        >
+                          <SelectTrigger className="h-11 rounded-xl border-border/70">
+                            <SelectValue placeholder="Opcional" />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-xl border-border/70">
+                            {ubicaciones.map((item: any) => (
+                              <SelectItem key={item.id} value={String(item.id)}>
+                                {item.nombre ?? `Ubicación #${item.id}`}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Destino propuesto</Label>
+                        <Input
+                          placeholder="Texto libre si aún no existe"
+                          className="h-11 rounded-xl border-border/70"
+                          {...createForm.register("ubicacion_destino_propuesta")}
+                        />
+                      </div>
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium">Recurso</Label>
-                      <Select
-                        value={
-                          createForm.watch("recurso_id")
-                            ? String(createForm.watch("recurso_id"))
-                            : undefined
-                        }
-                        onValueChange={(value) => createForm.setValue("recurso_id", Number(value))}
-                      >
-                        <SelectTrigger className="h-11 rounded-xl border-border/70">
-                          <SelectValue placeholder="Selecciona recurso" />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl border-border/70">
-                          {recursos.map((item: any) => (
-                            <SelectItem key={item.id} value={String(item.id)}>
-                              {item.codigo ?? item.nombre ?? `Recurso #${item.id}`}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-5 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">Ubicación destino oficial</Label>
-                      <Select
-                        value={
-                          createForm.watch("ubicacion_destino_id")
-                            ? String(createForm.watch("ubicacion_destino_id"))
-                            : undefined
-                        }
-                        onValueChange={(value) =>
-                          createForm.setValue("ubicacion_destino_id", Number(value))
-                        }
-                      >
-                        <SelectTrigger className="h-11 rounded-xl border-border/70">
-                          <SelectValue placeholder="Opcional" />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl border-border/70">
-                          {ubicaciones.map((item: any) => (
-                            <SelectItem key={item.id} value={String(item.id)}>
-                              {item.nombre ?? `Ubicación #${item.id}`}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">Destino propuesto</Label>
-                      <Input
-                        placeholder="Texto libre si aún no existe"
-                        className="h-11 rounded-xl border-border/70"
-                        {...createForm.register("ubicacion_destino_propuesta")}
+                      <Label className="text-sm font-medium">Motivo</Label>
+                      <Textarea
+                        placeholder="Describe por qué se solicita el cambio"
+                        rows={4}
+                        className="rounded-xl border-border/70"
+                        {...createForm.register("motivo", { required: true })}
                       />
                     </div>
-                  </div>
 
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Motivo</Label>
-                    <Textarea
-                      placeholder="Describe por qué se solicita el cambio"
-                      rows={4}
-                      className="rounded-xl border-border/70"
-                      {...createForm.register("motivo", { required: true })}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">PDF URL</Label>
-                    <Input
-                      placeholder="https://..."
-                      className="h-11 rounded-xl border-border/70"
-                      {...createForm.register("pdf_url")}
-                    />
-                  </div>
-
-                  {crearMutation.isError && (
-                    <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
-                      {normalizeError(crearMutation.error)}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">PDF URL</Label>
+                      <Input
+                        placeholder="https://..."
+                        className="h-11 rounded-xl border-border/70"
+                        {...createForm.register("pdf_url")}
+                      />
                     </div>
-                  )}
 
-                  <div className="flex flex-col-reverse gap-2 border-t border-border/70 pt-4 sm:flex-row sm:justify-end">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setOpenCreate(false)}
-                      className="rounded-xl border-border/70"
-                    >
-                      Cancelar
-                    </Button>
-                    <Button type="submit" disabled={crearMutation.isPending} className="rounded-xl">
-                      {crearMutation.isPending ? "Guardando..." : "Crear solicitud"}
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
-          )}
+                    {crearMutation.isError && (
+                      <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
+                        {normalizeError(crearMutation.error)}
+                      </div>
+                    )}
+
+                    <div className="flex flex-col-reverse gap-2 border-t border-border/70 pt-4 sm:flex-row sm:justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setOpenCreate(false)}
+                        className="rounded-xl border-border/70"
+                      >
+                        Cancelar
+                      </Button>
+                      <Button type="submit" disabled={crearMutation.isPending} className="rounded-xl">
+                        {crearMutation.isPending ? "Guardando..." : "Crear solicitud"}
+                      </Button>
+                    </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
         </div>
 
-        <div className="grid gap-3 border-t border-border/70 px-6 py-5 md:grid-cols-4">
+        <div className="grid gap-3 border-t border-border/70 px-6 py-5 md:grid-cols-6">
           <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
             <p className="text-xs uppercase tracking-wider text-muted-foreground">
-              Total solicitudes
+              Total
             </p>
             <p className="mt-1 text-2xl font-semibold text-foreground">{stats.total}</p>
           </div>
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/40 dark:bg-amber-950/20">
-            <p className="text-xs uppercase tracking-wider text-amber-700 dark:text-amber-300">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-xs uppercase tracking-wider text-amber-700">
               Pendientes
             </p>
-            <p className="mt-1 text-2xl font-semibold text-amber-700 dark:text-amber-300">
+            <p className="mt-1 text-2xl font-semibold text-amber-700">
               {stats.pendiente}
             </p>
           </div>
-          <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-900/40 dark:bg-blue-950/20">
-            <p className="text-xs uppercase tracking-wider text-blue-700 dark:text-blue-300">
+          <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+            <p className="text-xs uppercase tracking-wider text-blue-700">
               En revisión
             </p>
-            <p className="mt-1 text-2xl font-semibold text-blue-700 dark:text-blue-300">
+            <p className="mt-1 text-2xl font-semibold text-blue-700">
               {stats.en_revision}
             </p>
           </div>
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
-            <p className="text-xs uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+            <p className="text-xs uppercase tracking-wider text-emerald-700">
               Aprobadas
             </p>
-            <p className="mt-1 text-2xl font-semibold text-emerald-700 dark:text-emerald-300">
+            <p className="mt-1 text-2xl font-semibold text-emerald-700">
               {stats.aprobada}
+            </p>
+          </div>
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+            <p className="text-xs uppercase tracking-wider text-rose-700">
+              Rechazadas
+            </p>
+            <p className="mt-1 text-2xl font-semibold text-rose-700">
+              {stats.rechazada}
+            </p>
+          </div>
+          <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3">
+            <p className="text-xs uppercase tracking-wider text-zinc-600">
+              Canceladas
+            </p>
+            <p className="mt-1 text-2xl font-semibold text-zinc-600">
+              {stats.cancelada}
             </p>
           </div>
         </div>
@@ -565,62 +751,109 @@ export default function SolicitudesPage() {
 
       <section className="rounded-2xl border border-border/70 bg-card shadow-sm">
         <div className="border-b border-border/70 px-5 py-4">
-          <Tabs
-            defaultValue="todos"
-            value={estadoFiltro}
-            onValueChange={(value) => setEstadoFiltro(value as typeof estadoFiltro)}
-            className="w-full"
-          >
-            <TabsList className="h-11 rounded-xl bg-muted/50 p-1">
-              <TabsTrigger value="todos" className="rounded-lg px-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={estadoFiltro === "todos" ? "default" : "outline"}
+                onClick={() => setEstadoFiltro("todos")}
+                className="rounded-lg"
+              >
                 Todos
-              </TabsTrigger>
-              <TabsTrigger value="pendiente" className="rounded-lg px-4">
+              </Button>
+              <Button
+                variant={estadoFiltro === "pendiente" ? "default" : "outline"}
+                onClick={() => setEstadoFiltro("pendiente")}
+                className="rounded-lg border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800"
+              >
+                <Clock className="mr-2 h-4 w-4" />
                 Pendientes
-              </TabsTrigger>
-              <TabsTrigger value="en_revision" className="rounded-lg px-4">
+              </Button>
+              <Button
+                variant={estadoFiltro === "en_revision" ? "default" : "outline"}
+                onClick={() => setEstadoFiltro("en_revision")}
+                className="rounded-lg border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
+              >
+                <UserCheck className="mr-2 h-4 w-4" />
                 En revisión
-              </TabsTrigger>
-              <TabsTrigger value="aprobada" className="rounded-lg px-4">
+              </Button>
+              <Button
+                variant={estadoFiltro === "aprobada" ? "default" : "outline"}
+                onClick={() => setEstadoFiltro("aprobada")}
+                className="rounded-lg border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+              >
+                <CheckCircle2 className="mr-2 h-4 w-4" />
                 Aprobadas
-              </TabsTrigger>
-              <TabsTrigger value="rechazada" className="rounded-lg px-4">
+              </Button>
+              <Button
+                variant={estadoFiltro === "rechazada" ? "default" : "outline"}
+                onClick={() => setEstadoFiltro("rechazada")}
+                className="rounded-lg border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+              >
+                <XCircle className="mr-2 h-4 w-4" />
                 Rechazadas
-              </TabsTrigger>
-              <TabsTrigger value="cancelada" className="rounded-lg px-4">
+              </Button>
+              <Button
+                variant={estadoFiltro === "cancelada" ? "default" : "outline"}
+                onClick={() => setEstadoFiltro("cancelada")}
+                className="rounded-lg border-zinc-200 text-zinc-600 hover:bg-zinc-50 hover:text-zinc-700"
+              >
+                <AlertCircle className="mr-2 h-4 w-4" />
                 Canceladas
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+              </Button>
+            </div>
+
+            <div className="relative w-full md:w-80">
+              <input
+                type="text"
+                placeholder="Buscar por ID, tipo, recurso, solicitante o estado..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="h-11 w-full rounded-xl border border-border/70 bg-background px-4 pl-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+              <svg
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+            </div>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/30 hover:bg-muted/30">
-                <TableHead className="h-12 w-16">ID</TableHead>
-                <TableHead>Tipo</TableHead>
+                <TableHead className="h-12">Tipo</TableHead>
                 <TableHead>Recurso</TableHead>
                 <TableHead>Solicitante</TableHead>
                 <TableHead>Estado</TableHead>
-                <TableHead>Creación</TableHead>
-                <TableHead className="text-right w-32">Acciones</TableHead>
+                <TableHead>Fecha creación</TableHead>
+                <TableHead className="text-right w-24">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {solicitudesQuery.isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-28 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="h-28 text-center text-muted-foreground">
                     Cargando solicitudes...
                   </TableCell>
                 </TableRow>
-              ) : solicitudes.length ? (
-                solicitudes.map((solicitud) => {
+              ) : filteredSolicitudes.length ? (
+                filteredSolicitudes.map((solicitud) => {
                   const Icon = estadoConfig[solicitud.estado].icon;
                   return (
                     <TableRow key={solicitud.id} className="transition-colors hover:bg-muted/30">
-                      <TableCell className="font-medium">#{solicitud.id}</TableCell>
-                      <TableCell>{tipoLabel[solicitud.tipo_recurso]}</TableCell>
+                      <TableCell className="font-medium">
+                        {tipoLabel[solicitud.tipo_recurso]}
+                      </TableCell>
                       <TableCell>{solicitud.recurso_id}</TableCell>
                       <TableCell>{solicitud.solicitante_ci}</TableCell>
                       <TableCell>
@@ -695,13 +928,13 @@ export default function SolicitudesPage() {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-32 text-center">
+                  <TableCell colSpan={6} className="h-32 text-center">
                     <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
                       <ClipboardList className="h-6 w-6" />
                       <p className="text-sm font-medium text-foreground">
-                        No hay solicitudes registradas
+                        {searchTerm ? "No hay coincidencias para tu búsqueda" : "No hay solicitudes registradas"}
                       </p>
-                      {isDocente && (
+                      {isDocente && !searchTerm && (
                         <p className="text-sm">Crea tu primera solicitud usando el botón superior</p>
                       )}
                     </div>
@@ -721,50 +954,7 @@ export default function SolicitudesPage() {
         )}
       </section>
 
-      <section className="rounded-2xl border border-border/70 bg-card shadow-sm">
-        <div className="border-b border-border/70 px-5 py-4">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-muted-foreground" />
-            <h2 className="text-base font-semibold text-foreground">Flujo de trabajo</h2>
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Acciones permitidas según rol y estado de la solicitud
-          </p>
-        </div>
-
-        <div className="grid gap-4 p-5 md:grid-cols-3">
-          <div className="rounded-xl border border-border/70 bg-background p-4">
-            <div className="flex items-center gap-2 text-amber-700">
-              <FileText className="h-4 w-4" />
-              <span className="text-sm font-medium">Docente</span>
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Crea solicitudes y puede cancelarlas si aún están pendientes.
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-border/70 bg-background p-4">
-            <div className="flex items-center gap-2 text-blue-700">
-              <ShieldCheck className="h-4 w-4" />
-              <span className="text-sm font-medium">Técnico / Administrador</span>
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Toma solicitudes para revisión y resuelve aprobando o rechazando.
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-border/70 bg-background p-4">
-            <div className="flex items-center gap-2 text-emerald-700">
-              <MapPin className="h-4 w-4" />
-              <span className="text-sm font-medium">Aprobación</span>
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Requiere observación obligatoria y ubicación final oficial.
-            </p>
-          </div>
-        </div>
-      </section>
-
+      {/* Diálogos (sin cambios en lógica, solo estilos) */}
       <Dialog
         open={openDetail}
         onOpenChange={(value) => {
@@ -928,7 +1118,7 @@ export default function SolicitudesPage() {
                         </div>
 
                         <div className="mt-3 flex items-center gap-2 text-sm">
-                          <Users className="h-4 w-4 text-muted-foreground" />
+                          <div className="h-4 w-4" />
                           <span>
                             <span className="font-medium">Actor:</span> {item.actor_ci || "—"}
                           </span>

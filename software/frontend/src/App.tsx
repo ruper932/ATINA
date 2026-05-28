@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 
-
 import WelcomeScreen from '@/pages/WelcomeScreen'
 import RegisterScreen from '@/pages/RegisterScreen'
 import LoginScreen from '@/pages/LoginScreen'
@@ -13,10 +12,11 @@ import InvernaderosPage from '@/pages/dashboard/InvernaderosPage'
 import UbicacionesPage from '@/pages/dashboard/UbicacionesPage'
 import DispositivosPage from '@/pages/dashboard/DispositivosPage'
 import SensoresPage from '@/pages/dashboard/SensoresPage'
-import { ReportesVistasPage } from '@/pages/dashboard/ReportesVistasPage' 
+import { ReportesVistasPage } from '@/pages/dashboard/ReportesVistasPage'
 import FuentesAguaPage from './pages/dashboard/FuentesAguaPage'
 import FuenteAtrapanieblaPage from './pages/dashboard/FuenteAtrapanieblaPage'
 import PerfilPage from '@/pages/dashboard/PerfilPage'
+import SolicitudesPage from '@/pages/dashboard/SolicitudesPage'
 
 import { ThemeProvider } from '@/components/theme-provider'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
@@ -48,7 +48,7 @@ export default function App() {
                 <Route
                   path="/dashboard"
                   element={
-                    <RoleRoute allowedRoles={['admin', 'tecnico', 'docente', 'invitado']}>
+                    <RoleRoute allowedRoles={['admin', 'tecnico', 'docente', 'estudiante', 'invitado']}>
                       <DashboardLayout>
                         <DashboardHome />
                       </DashboardLayout>
@@ -122,7 +122,6 @@ export default function App() {
                   }
                 />
 
-                {/* --- NUEVA RUTA PARA SENSORES --- */}
                 <Route
                   path="/dashboard/sensores"
                   element={
@@ -133,17 +132,18 @@ export default function App() {
                     </RoleRoute>
                   }
                 />
+
                 <Route
                   path="/dashboard/reportes"
                   element={
-                    <RoleRoute allowedRoles={['admin', 'tecnico', 'docente']}>
+                    <RoleRoute allowedRoles={['admin', 'tecnico', 'docente', 'estudiante']}>
                       <DashboardLayout>
                         <ReportesVistasPage />
                       </DashboardLayout>
                     </RoleRoute>
-                    
                   }
                 />
+
                 <Route
                   path="/dashboard/fuentes-agua"
                   element={
@@ -165,6 +165,18 @@ export default function App() {
                     </RoleRoute>
                   }
                 />
+
+                <Route
+                  path="/dashboard/solicitudes"
+                  element={
+                    <RoleRoute allowedRoles={['admin', 'tecnico', 'docente']}>
+                      <DashboardLayout>
+                        <SolicitudesPage />
+                      </DashboardLayout>
+                    </RoleRoute>
+                  }
+                />
+
                 <Route
                   path="/dashboard/perfil"
                   element={
@@ -175,6 +187,7 @@ export default function App() {
                     </RoleRoute>
                   }
                 />
+
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </div>

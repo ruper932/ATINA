@@ -11,7 +11,12 @@ import {
   Wind,
   MapPin,
   Ruler,
+  Download,
 } from 'lucide-react'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import ExcelJS from 'exceljs'
+import Papa from 'papaparse'
 
 import { atrapanieblasService } from '@/services/atrapanieblas.service'
 import { ubicacionesService } from '@/services/ubicaciones.service'
@@ -48,6 +53,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 
 type FormState = {
   ubicacion_id: string
@@ -107,6 +114,16 @@ function getEstadoClasses(nombre?: string) {
   return 'border-border/70 bg-muted/40 text-muted-foreground'
 }
 
+function downloadBlob(content: BlobPart, fileName: string, type: string) {
+  const blob = new Blob([content], { type })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function AtrapanieblasPage() {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
@@ -114,6 +131,11 @@ export default function AtrapanieblasPage() {
   const [form, setForm] = useState<FormState>(initialForm)
   const [search, setSearch] = useState('')
   const [apiError, setApiError] = useState<string | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
+
+  // Filtros en tiempo real
+  const [filtroUbicacion, setFiltroUbicacion] = useState<string>('all')
+  const [filtroEstado, setFiltroEstado] = useState<string>('all')
 
   const atrapanieblasQuery = useQuery({
     queryKey: ['atrapanieblas'],
@@ -241,23 +263,141 @@ export default function AtrapanieblasPage() {
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending
 
-  const filteredItems = useMemo(() => {
-    const items = atrapanieblasQuery.data ?? []
-    const term = search.toLowerCase().trim()
-    if (!term) return items
-
-    return items.filter(
-      (item) =>
-        String(item.id).includes(term) ||
-        item.codigo.toLowerCase().includes(term) ||
-        item.nombre.toLowerCase().includes(term)
-    )
-  }, [atrapanieblasQuery.data, search])
-
+  // Datos base
+  const atrapanieblasData = atrapanieblasQuery.data ?? []
   const ubicacionesData = ubicacionesQuery.data ?? []
   const estadosData = estadosQuery.data ?? []
 
+  // Aplicar filtros en tiempo real (búsqueda + ubicación + estado)
+  const filteredItems = useMemo(() => {
+    let items = atrapanieblasData
+
+    // Búsqueda por texto
+    const term = search.toLowerCase().trim()
+    if (term) {
+      items = items.filter(
+        (item) =>
+          String(item.id).includes(term) ||
+          item.codigo.toLowerCase().includes(term) ||
+          item.nombre.toLowerCase().includes(term)
+      )
+    }
+
+    // Filtro por ubicación
+    if (filtroUbicacion !== 'all') {
+      items = items.filter((item) => String(item.ubicacion_id) === filtroUbicacion)
+    }
+
+    // Filtro por estado
+    if (filtroEstado !== 'all') {
+      items = items.filter((item) => String(item.estado_atrapaniebla_id) === filtroEstado)
+    }
+
+    return items
+  }, [atrapanieblasData, search, filtroUbicacion, filtroEstado])
+
   const totalItems = filteredItems.length
+
+  // Preparar datos para exportación
+  const exportRows = useMemo(() => {
+    return filteredItems.map((item) => {
+      const ubi = ubicacionesData.find((u) => u.id === item.ubicacion_id)
+      const est = estadosData.find((e) => e.id === item.estado_atrapaniebla_id)
+
+      return {
+        Código: item.codigo,
+        Nombre: item.nombre,
+        Ubicación: ubi?.nombre ?? `ID: ${item.ubicacion_id}`,
+        'Área (m²)': item.area_malla_m2,
+        'Tipo Malla': item.tipo_malla || '—',
+        Orientación: item.orientacion || '—',
+        Estado: est?.nombre ?? `ID: ${item.estado_atrapaniebla_id}`,
+        'Fecha Instalación': item.fecha_instalacion || '—',
+      }
+    })
+  }, [filteredItems, ubicacionesData, estadosData])
+
+  // Funciones de exportación
+  async function handleExportCSV() {
+    try {
+      setIsExporting(true)
+      const csv = Papa.unparse(exportRows)
+      downloadBlob(csv, `atrapanieblas-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.csv`, 'text/csv;charset=utf-8;')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  async function handleExportExcel() {
+    try {
+      setIsExporting(true)
+      const workbook = new ExcelJS.Workbook()
+      const worksheet = workbook.addWorksheet('Atrapanieblas')
+
+      worksheet.columns = Object.keys(exportRows[0] || {}).map((key) => ({
+        header: key,
+        key,
+        width: Math.max(16, key.length + 4),
+      }))
+
+      exportRows.forEach((row) => worksheet.addRow(row))
+
+      const headerRow = worksheet.getRow(1)
+      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: '10B981' },
+      }
+      headerRow.alignment = { vertical: 'middle', horizontal: 'center' }
+
+      worksheet.eachRow((row, rowNumber) => {
+        row.alignment = { vertical: 'middle' }
+        if (rowNumber > 1) {
+          row.eachCell((cell) => {
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'E5E7EB' } },
+              left: { style: 'thin', color: { argb: 'E5E7EB' } },
+              bottom: { style: 'thin', color: { argb: 'E5E7EB' } },
+              right: { style: 'thin', color: { argb: 'E5E7EB' } },
+            }
+          })
+        }
+      })
+
+      const buffer = await workbook.xlsx.writeBuffer()
+      downloadBlob(buffer, `atrapanieblas-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  async function handleExportPDF() {
+    try {
+      setIsExporting(true)
+      const doc = new jsPDF('landscape', 'pt', 'a4')
+      doc.setFontSize(16)
+      doc.text('Listado de Atrapanieblas', 40, 30)
+      doc.setFontSize(10)
+      doc.text(`Generado: ${new Date().toLocaleString()}`, 40, 50)
+
+      const headers = Object.keys(exportRows[0] || {})
+      const body = exportRows.map((row) => Object.values(row).map((v) => String(v)))
+
+      autoTable(doc, {
+        startY: 70,
+        head: [headers],
+        body,
+        styles: { fontSize: 8, cellPadding: 4 },
+        headStyles: { fillColor: [16, 185, 129] },
+        margin: { left: 40, right: 40 },
+      })
+
+      doc.save(`atrapanieblas-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.pdf`)
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -278,7 +418,7 @@ export default function AtrapanieblasPage() {
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="flex flex-wrap gap-3">
             <div className="rounded-2xl border border-border/70 bg-background/80 px-4 py-3 shadow-sm backdrop-blur">
               <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                 Registros visibles
@@ -307,11 +447,11 @@ export default function AtrapanieblasPage() {
               Administración de registros
             </h2>
             <p className="text-sm text-muted-foreground">
-              Busca, actualiza y registra nuevas unidades de atrapanieblas.
+              Busca, filtra, exporta y registra nuevas unidades de atrapanieblas.
             </p>
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
               className="rounded-xl border-border/70"
@@ -323,6 +463,36 @@ export default function AtrapanieblasPage() {
             >
               <RefreshCw className="mr-2 h-4 w-4" />
               Recargar
+            </Button>
+
+            <Button
+              variant="outline"
+              className="rounded-xl border-border/70"
+              onClick={handleExportCSV}
+              disabled={isExporting || filteredItems.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              CSV
+            </Button>
+
+            <Button
+              variant="outline"
+              className="rounded-xl border-border/70"
+              onClick={handleExportExcel}
+              disabled={isExporting || filteredItems.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Excel
+            </Button>
+
+            <Button
+              variant="outline"
+              className="rounded-xl border-border/70"
+              onClick={handleExportPDF}
+              disabled={isExporting || filteredItems.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              PDF
             </Button>
 
             <Dialog
@@ -536,19 +706,48 @@ export default function AtrapanieblasPage() {
           </div>
         </div>
 
-        <div className="px-5 py-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="relative w-full md:max-w-md">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por código o nombre..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="h-11 rounded-xl border-border/70 pl-10"
-              />
-            </div>
+        {/* Filtros en tiempo real */}
+        <div className="flex flex-col gap-3 border-b border-border/70 px-5 py-4 md:flex-row md:items-center md:justify-between">
+          <div className="relative w-full md:max-w-md">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por código o nombre..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-11 rounded-xl border-border/70 pl-10"
+            />
+          </div>
 
-            <div className="text-sm text-muted-foreground">
+          <div className="flex flex-wrap gap-3">
+            <Select value={filtroUbicacion} onValueChange={setFiltroUbicacion}>
+              <SelectTrigger className="h-11 w-full rounded-xl border-border/70 bg-background md:w-48">
+                <SelectValue placeholder="Filtrar por ubicación" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-border/70">
+                <SelectItem value="all">Todas las ubicaciones</SelectItem>
+                {ubicacionesData.map((ubi) => (
+                  <SelectItem key={ubi.id} value={String(ubi.id)}>
+                    {ubi.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={filtroEstado} onValueChange={setFiltroEstado}>
+              <SelectTrigger className="h-11 w-full rounded-xl border-border/70 bg-background md:w-48">
+                <SelectValue placeholder="Filtrar por estado" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-border/70">
+                <SelectItem value="all">Todos los estados</SelectItem>
+                {estadosData.map((est) => (
+                  <SelectItem key={est.id} value={String(est.id)}>
+                    {est.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <div className="text-sm text-muted-foreground flex items-center">
               {totalItems} resultado{totalItems === 1 ? '' : 's'}
             </div>
           </div>
@@ -584,7 +783,7 @@ export default function AtrapanieblasPage() {
                       colSpan={6}
                       className="h-28 text-center text-muted-foreground"
                     >
-                      No se encontraron registros.
+                      No se encontraron registros con los filtros aplicados.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -658,7 +857,11 @@ export default function AtrapanieblasPage() {
                               variant="ghost"
                               size="icon"
                               className="rounded-xl text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/20"
-                              onClick={() => deleteMutation.mutate(item.id)}
+                              onClick={() => {
+                                if (window.confirm(`¿Eliminar ${item.nombre}?`)) {
+                                  deleteMutation.mutate(item.id)
+                                }
+                              }}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>

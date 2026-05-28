@@ -1,5 +1,35 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from 'recharts'
+import {
+  Search,
+  Download,
+  RefreshCw,
+  Printer,
+  BarChart3,
+  Filter,
+  Database,
+  Waves,
+  BellRing,
+  Cpu,
+  Droplets,
+} from 'lucide-react'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import ExcelJS from 'exceljs'
+
 import { reportesService } from '@/services/reportes.service'
 import type {
   AlertasFilters,
@@ -14,21 +44,19 @@ import type {
   VReportePrediccionesAgua,
   VReporteRiegoEjecutado,
 } from '@/types/reportes'
-import * as XLSX from 'xlsx'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
+
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  PieChart,
-  Pie,
-  Cell,
-} from 'recharts'
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 const initialLecturasFilters: LecturasFilters = {
   q: '',
@@ -81,43 +109,6 @@ const initialPrediccionesFilters: PrediccionesFilters = {
   limit: 20,
 }
 
-const panelClass =
-  'rounded-2xl border border-white/60 bg-white/80 shadow-[0_10px_30px_-12px_rgba(15,23,42,0.18)] backdrop-blur dark:border-white/10 dark:bg-zinc-900/75 dark:shadow-none'
-
-function toParams<T extends object>(filters: T): Record<string, string | number> {
-  return Object.fromEntries(
-    Object.entries(filters).filter(([, value]) => value !== '' && value !== null && value !== undefined)
-  ) as Record<string, string | number>
-}
-
-function stripPagination<T extends { skip?: number; limit?: number }>(filters: T) {
-  const { skip, limit, ...rest } = filters
-  return rest
-}
-
-function formatDateTime(value: unknown) {
-  if (typeof value !== 'string') return value != null ? String(value) : '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleString()
-}
-
-function formatDate(value: unknown) {
-  if (typeof value !== 'string') return value != null ? String(value) : '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleDateString()
-}
-
-function formatDecimal(value: unknown) {
-  const num = Number(value)
-  if (Number.isNaN(num)) return value != null ? String(value) : '-'
-  return num.toLocaleString(undefined, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  })
-}
-
 type Column<T, K extends keyof T = keyof T> = {
   key: K
   label: string
@@ -144,64 +135,74 @@ type ChartDatum = {
   value: number
 }
 
-function ReportTable<T extends object>({
-  data,
-  columns,
-  emptyMessage,
-  getRowKey,
-}: ReportTableProps<T>) {
-  if (data.length === 0) {
-    return (
-      <div className="flex h-52 flex-col items-center justify-center rounded-2xl border border-dashed border-stone-200/80 bg-white/80 px-6 text-center shadow-[0_10px_30px_-12px_rgba(15,23,42,0.18)] backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/80">
-        <p className="text-sm text-stone-500 dark:text-zinc-400">{emptyMessage}</p>
-      </div>
-    )
-  }
+const limitOptions = [10, 20, 50, 100]
 
+function toParams<T extends object>(filters: T): Record<string, string | number> {
+  return Object.fromEntries(
+    Object.entries(filters).filter(
+      ([, value]) => value !== '' && value !== null && value !== undefined
+    )
+  ) as Record<string, string | number>
+}
+
+function stripPagination<T extends { skip?: number; limit?: number }>(filters: T) {
+  const { skip, limit, ...rest } = filters
+  return rest
+}
+
+function formatDateTime(value: unknown) {
+  if (typeof value !== 'string') return value != null ? String(value) : '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString()
+}
+
+function formatDate(value: unknown) {
+  if (typeof value !== 'string') return value != null ? String(value) : '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString()
+}
+
+function formatDecimal(value: unknown) {
+  const num = Number(value)
+  if (Number.isNaN(num)) return value != null ? String(value) : '—'
+  return num.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })
+}
+
+function SurfaceCard({
+  title,
+  description,
+  children,
+  action,
+  className = '',
+}: {
+  title: string
+  description?: string
+  children: React.ReactNode
+  action?: React.ReactNode
+  className?: string
+}) {
   return (
-    <div className={panelClass}>
-      <div className="overflow-x-auto">
-        <table className="min-w-full border-collapse text-sm">
-          <thead>
-            <tr className="border-b border-stone-200/70 bg-stone-100/70 dark:border-zinc-800 dark:bg-zinc-800/70">
-              {columns.map((column) => (
-                <th
-                  key={String(column.key)}
-                  scope="col"
-                  className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-600 dark:text-zinc-300"
-                >
-                  {column.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-stone-100/80 dark:divide-zinc-800">
-            {data.map((row, rowIndex) => (
-              <tr
-                key={getRowKey ? getRowKey(row, rowIndex) : rowIndex}
-                className="transition hover:bg-emerald-50/50 dark:hover:bg-zinc-800/50"
-              >
-                {columns.map((column) => {
-                  const value = row[column.key]
-                  return (
-                    <td
-                      key={String(column.key)}
-                      className={`px-4 py-3 align-middle text-stone-700 dark:text-zinc-200 ${column.className ?? ''}`}
-                    >
-                      {column.render
-                        ? column.render(value, row)
-                        : value !== null && value !== undefined
-                          ? String(value)
-                          : '-'}
-                    </td>
-                  )
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <Card className={`rounded-[24px] border border-border/70 bg-card shadow-none ${className}`}>
+      <CardHeader className="pb-4">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <CardTitle className="text-xl font-semibold text-foreground">{title}</CardTitle>
+            {description ? (
+              <CardDescription className="mt-1 text-sm leading-6 text-muted-foreground">
+                {description}
+              </CardDescription>
+            ) : null}
+          </div>
+          {action}
+        </div>
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
   )
 }
 
@@ -221,17 +222,15 @@ function InputField({
   type?: React.HTMLInputTypeAttribute
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-xs font-medium text-stone-700 dark:text-zinc-300">
-        {label}
-      </label>
-      <input
+    <div className="space-y-2">
+      <Label htmlFor={id}>{label}</Label>
+      <Input
         id={id}
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-xl border border-stone-200/80 bg-white/80 px-3.5 py-2.5 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-zinc-700 dark:bg-zinc-800/90 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+        className="rounded-2xl border-border/70 bg-background"
       />
     </div>
   )
@@ -251,15 +250,13 @@ function SelectField({
   options: { value: number; label: string }[]
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-xs font-medium text-stone-700 dark:text-zinc-300">
-        {label}
-      </label>
+    <div className="space-y-2">
+      <Label htmlFor={id}>{label}</Label>
       <select
         id={id}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full rounded-xl border border-stone-200/80 bg-white/80 px-3.5 py-2.5 text-sm text-stone-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-zinc-700 dark:bg-zinc-800/90 dark:text-zinc-100"
+        className="flex h-10 w-full rounded-2xl border border-border/70 bg-background px-3 py-2 text-sm text-foreground outline-none ring-offset-background transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -273,17 +270,16 @@ function SelectField({
 
 function StatusBadge({ label }: { label: string }) {
   const lower = label.toLowerCase()
-  const style =
-    lower.includes('activo') || lower.includes('stock') || lower.includes('ok')
-      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
-      : lower.includes('inactivo') || lower.includes('crit') || lower.includes('out')
-        ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400'
-        : lower.includes('bajo') || lower.includes('warn') || lower.includes('low')
-          ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400'
-          : 'bg-teal-100 text-teal-700 dark:bg-teal-950/30 dark:text-teal-400'
+  const classes = lower.includes('activo') || lower.includes('stock') || lower.includes('ok')
+    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300'
+    : lower.includes('inactivo') || lower.includes('crit') || lower.includes('out')
+      ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-300'
+      : lower.includes('mantenimiento') || lower.includes('revision') || lower.includes('revisión')
+        ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300'
+        : 'bg-teal-100 text-teal-700 dark:bg-teal-950/30 dark:text-teal-300'
 
   return (
-    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${style}`}>
+    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${classes}`}>
       {label}
     </span>
   )
@@ -291,97 +287,196 @@ function StatusBadge({ label }: { label: string }) {
 
 function StatsCards({ stats }: { stats: StatCard[] }) {
   const toneMap = {
-    emerald: 'border-emerald-200/80 dark:border-emerald-900/30',
-    teal: 'border-teal-200/80 dark:border-teal-900/30',
-    amber: 'border-amber-200/80 dark:border-amber-900/30',
-    rose: 'border-rose-200/80 dark:border-rose-900/30',
-    neutral: 'border-stone-200/80 dark:border-zinc-800',
-  }
-
-  const accentMap = {
-    emerald: 'text-emerald-700 dark:text-emerald-400',
-    teal: 'text-teal-700 dark:text-teal-400',
-    amber: 'text-amber-700 dark:text-amber-400',
-    rose: 'text-rose-700 dark:text-rose-400',
-    neutral: 'text-stone-900 dark:text-white',
-  }
+    emerald:
+      'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300',
+    teal:
+      'border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-900/40 dark:bg-teal-950/20 dark:text-teal-300',
+    amber:
+      'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300',
+    rose:
+      'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-300',
+    neutral: 'border-border bg-muted text-foreground',
+  } as const
 
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       {stats.map((stat) => (
-        <div
+        <Card
           key={stat.label}
-          className={`rounded-2xl border bg-white/80 p-5 shadow-[0_10px_25px_-15px_rgba(15,23,42,0.25)] backdrop-blur dark:bg-zinc-900/80 ${toneMap[stat.tone ?? 'neutral']}`}
+          className="rounded-[24px] border border-border/70 bg-card shadow-none"
         >
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500 dark:text-zinc-400">
-            {stat.label}
-          </p>
-          <p className={`mt-3 text-3xl font-black tracking-tight ${accentMap[stat.tone ?? 'neutral']}`}>
-            {stat.value}
-          </p>
-          {stat.helper && (
-            <p className="mt-1 text-xs text-stone-500 dark:text-zinc-400">{stat.helper}</p>
-          )}
-        </div>
+          <CardContent className="p-5">
+            <div
+              className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${
+                toneMap[stat.tone ?? 'neutral']
+              }`}
+            >
+              {stat.label}
+            </div>
+            <p className="mt-4 text-3xl font-bold tracking-tight text-foreground">{stat.value}</p>
+            {stat.helper ? (
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">{stat.helper}</p>
+            ) : null}
+          </CardContent>
+        </Card>
       ))}
     </div>
   )
 }
 
-function AnalyticsPanel({
+// Gráfico de barras horizontal (izquierda)
+function BarChartPanel({
   title,
   chartData,
 }: {
   title: string
   chartData: ChartDatum[]
 }) {
-  const colors = ['#059669', '#0f766e', '#14b8a6', '#84cc16', '#d97706', '#e11d48', '#78716c']
-
   if (!chartData.length) return null
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[2fr,1fr]">
-      <div className={`${panelClass} p-4`}>
-        <h3 className="mb-4 text-sm font-bold text-stone-900 dark:text-white">{title}</h3>
-        <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.22} />
-              <XAxis dataKey="name" stroke="#78716c" />
-              <YAxis allowDecimals={false} stroke="#78716c" />
-              <Tooltip
-                contentStyle={{
-                  borderRadius: 12,
-                  border: '1px solid #d6d3d1',
-                  backgroundColor: '#ffffff',
-                }}
-              />
-              <Bar dataKey="value" radius={[8, 8, 0, 0]} fill="#059669" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+    <SurfaceCard
+      title={title}
+      description="Distribución por categoría"
+    >
+      <div className="h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} layout="vertical" margin={{ left: 40 }}>
+            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" opacity={0.35} />
+            <XAxis type="number" stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} />
+            <YAxis
+              type="category"
+              dataKey="name"
+              stroke="hsl(var(--muted-foreground))"
+              tickLine={false}
+              axisLine={false}
+              width={120}
+              fontSize={11}
+            />
+            <Tooltip
+              cursor={{ fill: 'rgba(16, 185, 129, 0.06)' }}
+              contentStyle={{
+                borderRadius: 16,
+                border: '1px solid hsl(var(--border))',
+                backgroundColor: 'hsl(var(--card))',
+                boxShadow: 'none',
+              }}
+            />
+            <Bar
+              dataKey="value"
+              radius={[0, 8, 8, 0]}
+              fill="#10b981"
+              maxBarSize={30}
+            />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
+    </SurfaceCard>
+  )
+}
 
-      <div className={`${panelClass} p-4`}>
-        <h3 className="mb-4 text-sm font-bold text-stone-900 dark:text-white">Distribución</h3>
-        <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie data={chartData} dataKey="value" nameKey="name" outerRadius={92} label>
-                {chartData.map((entry, index) => (
-                  <Cell key={entry.name} fill={colors[index % colors.length]} />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{
-                  borderRadius: 12,
-                  border: '1px solid #d6d3d1',
-                  backgroundColor: '#ffffff',
-                }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+// Gráfico de torta (dona) - derecha
+function DonaChartPanel({
+  title,
+  data,
+}: {
+  title: string
+  data: ChartDatum[]
+}) {
+  const COLORS = ['#10b981', '#ef4444', '#f59e0b', '#6b7280', '#3b82f6', '#8b5cf6', '#ec489a', '#14b8a6']
+
+  if (!data.length) return null
+
+  return (
+    <SurfaceCard
+      title={title}
+      description="Distribución porcentual"
+    >
+      <div className="flex h-64 w-full items-center justify-center">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              cx="50%"
+              cy="50%"
+              innerRadius={50}
+              outerRadius={80}
+              paddingAngle={2}
+              dataKey="value"
+              label={({ name, percent }) => (percent ? `${(percent * 100).toFixed(0)}%` : name)}
+            >
+              {data.map((_, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip
+              formatter={(value, name) => [`${value} registros`, name]}
+              contentStyle={{ borderRadius: '12px', border: '1px solid hsl(var(--border))' }}
+            />
+            <Legend verticalAlign="bottom" height={36} layout="horizontal" />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+    </SurfaceCard>
+  )
+}
+
+function ReportTable<T extends object>({
+  data,
+  columns,
+  emptyMessage,
+  getRowKey,
+}: ReportTableProps<T>) {
+  if (data.length === 0) {
+    return (
+      <div className="flex h-52 flex-col items-center justify-center rounded-[22px] border border-dashed border-border/70 bg-background px-6 text-center">
+        <p className="text-sm text-muted-foreground">{emptyMessage}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="overflow-hidden rounded-[22px] border border-border/70">
+      <div className="overflow-x-auto">
+        <table className="min-w-full border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-border/70 bg-muted/40">
+              {columns.map((column) => (
+                <th
+                  key={String(column.key)}
+                  scope="col"
+                  className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground"
+                >
+                  {column.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((row, rowIndex) => (
+              <tr
+                key={getRowKey ? getRowKey(row, rowIndex) : rowIndex}
+                className="border-b border-border/70 transition-colors hover:bg-accent/30"
+              >
+                {columns.map((column) => {
+                  const value = row[column.key]
+                  return (
+                    <td
+                      key={String(column.key)}
+                      className={`px-4 py-3 align-middle text-foreground ${column.className ?? ''}`}
+                    >
+                      {column.render
+                        ? column.render(value, row)
+                        : value !== null && value !== undefined
+                          ? String(value)
+                          : '—'}
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   )
@@ -410,44 +505,28 @@ function PaginationControls({
   const end = rowsLoaded > 0 ? start + rowsLoaded - 1 : 0
 
   return (
-    <div className={`${panelClass} flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between`}>
-      <div>
-        <p className="text-sm font-medium text-stone-700 dark:text-zinc-200">
-          Mostrando {start}–{end}
-        </p>
-        <p className="text-xs text-stone-500 dark:text-zinc-400">Página {page}</p>
-      </div>
-
-      <div className="flex items-center gap-1">
-        <button
-          type="button"
-          onClick={onFirst}
-          disabled={!hasPrevious}
-          className="rounded-lg border border-stone-200/80 bg-white/80 px-3 py-1.5 text-sm font-medium text-stone-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800/90 dark:text-zinc-200 dark:hover:bg-zinc-800"
-        >
-          {'<<'}
-        </button>
-        <button
-          type="button"
-          onClick={onPrevious}
-          disabled={!hasPrevious}
-          className="rounded-lg border border-stone-200/80 bg-white/80 px-3 py-1.5 text-sm font-medium text-stone-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800/90 dark:text-zinc-200 dark:hover:bg-zinc-800"
-        >
-          {'<'}
-        </button>
-        <div className="mx-2 min-w-[96px] rounded-lg bg-stone-100/80 px-3 py-1.5 text-center text-sm font-medium text-stone-700 dark:bg-zinc-800 dark:text-zinc-200">
-          {page}
+    <SurfaceCard title="Paginación" description="Navega por el conjunto de resultados actual.">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-medium text-foreground">
+            Mostrando {start}-{end}
+          </p>
+          <p className="text-xs text-muted-foreground">Página {page}</p>
         </div>
-        <button
-          type="button"
-          onClick={onNext}
-          disabled={!hasNext}
-          className="rounded-lg border border-stone-200/80 bg-white/80 px-3 py-1.5 text-sm font-medium text-stone-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800/90 dark:text-zinc-200 dark:hover:bg-zinc-800"
-        >
-          {'>'}
-        </button>
+
+        <div className="flex items-center gap-2">
+          <Button variant="outline" className="rounded-2xl" onClick={onFirst} disabled={!hasPrevious}>
+            Inicio
+          </Button>
+          <Button variant="outline" className="rounded-2xl" onClick={onPrevious} disabled={!hasPrevious}>
+            Anterior
+          </Button>
+          <Button variant="outline" className="rounded-2xl" onClick={onNext} disabled={!hasNext}>
+            Siguiente
+          </Button>
+        </div>
       </div>
-    </div>
+    </SurfaceCard>
   )
 }
 
@@ -464,6 +543,16 @@ function groupChartData<T>(rows: T[], getter: (row: T) => string): ChartDatum[] 
     .slice(0, 8)
 }
 
+function downloadBlob(content: BlobPart, fileName: string, type: string) {
+  const blob = new Blob([content], { type })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
 function exportToCSV(rows: Record<string, string | number>[], filename: string) {
   if (!rows.length) return
 
@@ -474,22 +563,54 @@ function exportToCSV(rows: Record<string, string | number>[], filename: string) 
     ...rows.map((row) => headers.map((header) => escapeCell(row[header] ?? '')).join(',')),
   ].join('\n')
 
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${filename}.csv`
-  a.click()
-  URL.revokeObjectURL(url)
+  downloadBlob(csv, `${filename}.csv`, 'text/csv;charset=utf-8;')
 }
 
-function exportToExcel(rows: Record<string, string | number>[], filename: string) {
+async function exportToExcel(rows: Record<string, string | number>[], filename: string) {
   if (!rows.length) return
 
-  const worksheet = XLSX.utils.json_to_sheet(rows)
-  const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Reporte')
-  XLSX.writeFile(workbook, `${filename}.xlsx`)
+  const workbook = new ExcelJS.Workbook()
+  const worksheet = workbook.addWorksheet('Reporte')
+
+  worksheet.columns = Object.keys(rows[0]).map((key) => ({
+    header: key,
+    key,
+    width: Math.max(16, key.length + 4),
+  }))
+
+  rows.forEach((row) => worksheet.addRow(row))
+
+  const headerRow = worksheet.getRow(1)
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+  headerRow.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: '10B981' },
+  }
+  headerRow.alignment = { vertical: 'middle', horizontal: 'center' }
+
+  worksheet.eachRow((row, rowNumber) => {
+    row.alignment = { vertical: 'middle' }
+
+    if (rowNumber > 1) {
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'E5E7EB' } },
+          left: { style: 'thin', color: { argb: 'E5E7EB' } },
+          bottom: { style: 'thin', color: { argb: 'E5E7EB' } },
+          right: { style: 'thin', color: { argb: 'E5E7EB' } },
+        }
+      })
+    }
+  })
+
+  const buffer = await workbook.xlsx.writeBuffer()
+
+  downloadBlob(
+    buffer,
+    `${filename}.xlsx`,
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  )
 }
 
 function exportToPDF(
@@ -503,7 +624,6 @@ function exportToPDF(
   const doc = new jsPDF('p', 'mm', 'a4')
   doc.setFontSize(18)
   doc.text(title, 14, 18)
-
   doc.setFontSize(10)
   doc.text(`Generado: ${new Date().toLocaleString()}`, 14, 26)
 
@@ -518,7 +638,7 @@ function exportToPDF(
     head: [Object.keys(rows[0])],
     body: rows.map((row) => Object.values(row).map((v) => String(v))),
     styles: { fontSize: 8 },
-    headStyles: { fillColor: [5, 150, 105] },
+    headStyles: { fillColor: [16, 185, 129] },
     margin: { left: 14, right: 14 },
   })
 
@@ -529,14 +649,13 @@ function handlePrintPDF(
   title: string,
   stats: StatCard[],
   rows: Record<string, string | number>[],
-  filename: string
+  _filename: string
 ) {
   if (!rows.length) return
 
   const doc = new jsPDF('p', 'mm', 'a4')
   doc.setFontSize(18)
   doc.text(title, 14, 18)
-
   doc.setFontSize(10)
   doc.text(`Generado: ${new Date().toLocaleString()}`, 14, 26)
 
@@ -551,7 +670,7 @@ function handlePrintPDF(
     head: [Object.keys(rows[0])],
     body: rows.map((row) => Object.values(row).map((v) => String(v))),
     styles: { fontSize: 8 },
-    headStyles: { fillColor: [5, 150, 105] },
+    headStyles: { fillColor: [16, 185, 129] },
     margin: { left: 14, right: 14 },
   })
 
@@ -590,13 +709,51 @@ export const ReportesVistasPage: React.FC = () => {
   const [riegoApplied, setRiegoApplied] = useState<RiegoFilters>(initialRiegoFilters)
   const [prediccionesApplied, setPrediccionesApplied] = useState<PrediccionesFilters>(initialPrediccionesFilters)
 
+  const [allEstadosOptions, setAllEstadosOptions] = useState<{ id: number; nombre: string }[]>([])
+
+  useEffect(() => {
+    const handler = window.setTimeout(() => {
+      if (activeReport === 'lecturas') setLecturasApplied({ ...lecturasDraft, skip: 0 })
+      if (activeReport === 'alertas') setAlertasApplied({ ...alertasDraft, skip: 0 })
+      if (activeReport === 'inventario') setInventarioApplied({ ...inventarioDraft, skip: 0 })
+      if (activeReport === 'riego') setRiegoApplied({ ...riegoDraft, skip: 0 })
+      if (activeReport === 'predicciones') setPrediccionesApplied({ ...prediccionesDraft, skip: 0 })
+    }, 350)
+
+    return () => window.clearTimeout(handler)
+  }, [
+    activeReport,
+    lecturasDraft,
+    alertasDraft,
+    inventarioDraft,
+    riegoDraft,
+    prediccionesDraft,
+  ])
+
+  useEffect(() => {
+    if (activeReport === 'inventario') {
+      const { estado_dispositivo_id, skip, limit, ...filters } = inventarioApplied
+      reportesService.getInventarioDispositivosAll(filters).then((data) => {
+        const estadoMap = new Map<number, string>()
+        data.forEach((item) => {
+          const id = item.estado_dispositivo_id
+          const nombre = item.estado_dispositivo_nombre
+          if (id && nombre && !estadoMap.has(id)) {
+            estadoMap.set(id, nombre)
+          }
+        })
+        setAllEstadosOptions(Array.from(estadoMap.entries()).map(([id, nombre]) => ({ id, nombre })))
+      })
+    }
+  }, [activeReport, inventarioApplied.q, inventarioApplied.codigo, inventarioApplied.nombre, inventarioApplied.tipo_dispositivo])
+
   const tabs = [
-    { id: 'lecturas', label: 'Lecturas por sensor' },
-    { id: 'alertas', label: 'Alertas por invernadero' },
-    { id: 'inventario', label: 'Inventario dispositivos' },
-    { id: 'riego', label: 'Riego ejecutado' },
-    { id: 'predicciones', label: 'Predicciones de agua' },
-  ] as const
+    { id: 'lecturas' as const, label: 'Lecturas por sensor', icon: Waves },
+    { id: 'alertas' as const, label: 'Alertas por invernadero', icon: BellRing },
+    { id: 'inventario' as const, label: 'Inventario dispositivos', icon: Cpu },
+    { id: 'riego' as const, label: 'Riego ejecutado', icon: Droplets },
+    { id: 'predicciones' as const, label: 'Predicciones de agua', icon: BarChart3 },
+  ]
 
   const activeTitle = useMemo(
     () => tabs.find((tab) => tab.id === activeReport)?.label ?? 'Reporte',
@@ -638,69 +795,52 @@ export const ReportesVistasPage: React.FC = () => {
     placeholderData: (previousData) => previousData,
   })
 
-  const currentQuery = {
-    lecturas: lecturasQuery,
-    alertas: alertasQuery,
-    inventario: inventarioQuery,
-    riego: riegoQuery,
-    predicciones: prediccionesQuery,
-  }[activeReport]
-
-  function handleApplyFilters(e: React.FormEvent) {
-    e.preventDefault()
-
-    switch (activeReport) {
-      case 'lecturas':
-        setLecturasApplied({ ...lecturasDraft, skip: 0 })
-        break
-      case 'alertas':
-        setAlertasApplied({ ...alertasDraft, skip: 0 })
-        break
-      case 'inventario':
-        setInventarioApplied({ ...inventarioDraft, skip: 0 })
-        break
-      case 'riego':
-        setRiegoApplied({ ...riegoDraft, skip: 0 })
-        break
-      case 'predicciones':
-        setPrediccionesApplied({ ...prediccionesDraft, skip: 0 })
-        break
-    }
-  }
+  const currentQuery =
+    activeReport === 'lecturas'
+      ? lecturasQuery
+      : activeReport === 'alertas'
+        ? alertasQuery
+        : activeReport === 'inventario'
+          ? inventarioQuery
+          : activeReport === 'riego'
+            ? riegoQuery
+            : prediccionesQuery
 
   function handleResetFilters() {
-    switch (activeReport) {
-      case 'lecturas':
-        setLecturasDraft(initialLecturasFilters)
-        setLecturasApplied(initialLecturasFilters)
-        break
-      case 'alertas':
-        setAlertasDraft(initialAlertasFilters)
-        setAlertasApplied(initialAlertasFilters)
-        break
-      case 'inventario':
-        setInventarioDraft(initialInventarioFilters)
-        setInventarioApplied(initialInventarioFilters)
-        break
-      case 'riego':
-        setRiegoDraft(initialRiegoFilters)
-        setRiegoApplied(initialRiegoFilters)
-        break
-      case 'predicciones':
-        setPrediccionesDraft(initialPrediccionesFilters)
-        setPrediccionesApplied(initialPrediccionesFilters)
-        break
+    if (activeReport === 'lecturas') {
+      setLecturasDraft(initialLecturasFilters)
+      setLecturasApplied(initialLecturasFilters)
+    }
+    if (activeReport === 'alertas') {
+      setAlertasDraft(initialAlertasFilters)
+      setAlertasApplied(initialAlertasFilters)
+    }
+    if (activeReport === 'inventario') {
+      setInventarioDraft(initialInventarioFilters)
+      setInventarioApplied(initialInventarioFilters)
+    }
+    if (activeReport === 'riego') {
+      setRiegoDraft(initialRiegoFilters)
+      setRiegoApplied(initialRiegoFilters)
+    }
+    if (activeReport === 'predicciones') {
+      setPrediccionesDraft(initialPrediccionesFilters)
+      setPrediccionesApplied(initialPrediccionesFilters)
     }
   }
 
   const currentData = currentQuery.data ?? []
-  const currentAppliedFilters = {
-    lecturas: lecturasApplied,
-    alertas: alertasApplied,
-    inventario: inventarioApplied,
-    riego: riegoApplied,
-    predicciones: prediccionesApplied,
-  }[activeReport]
+
+  const currentAppliedFilters =
+    activeReport === 'lecturas'
+      ? lecturasApplied
+      : activeReport === 'alertas'
+        ? alertasApplied
+        : activeReport === 'inventario'
+          ? inventarioApplied
+          : activeReport === 'riego'
+            ? riegoApplied
+            : prediccionesApplied
 
   const currentPage = Math.floor(currentAppliedFilters.skip / currentAppliedFilters.limit) + 1
   const currentLimit = currentAppliedFilters.limit
@@ -711,23 +851,11 @@ export const ReportesVistasPage: React.FC = () => {
   function updateSkipForPage(nextPage: number) {
     const nextSkip = (nextPage - 1) * currentLimit
 
-    switch (activeReport) {
-      case 'lecturas':
-        setLecturasApplied((prev) => ({ ...prev, skip: nextSkip }))
-        break
-      case 'alertas':
-        setAlertasApplied((prev) => ({ ...prev, skip: nextSkip }))
-        break
-      case 'inventario':
-        setInventarioApplied((prev) => ({ ...prev, skip: nextSkip }))
-        break
-      case 'riego':
-        setRiegoApplied((prev) => ({ ...prev, skip: nextSkip }))
-        break
-      case 'predicciones':
-        setPrediccionesApplied((prev) => ({ ...prev, skip: nextSkip }))
-        break
-    }
+    if (activeReport === 'lecturas') setLecturasApplied((prev) => ({ ...prev, skip: nextSkip }))
+    if (activeReport === 'alertas') setAlertasApplied((prev) => ({ ...prev, skip: nextSkip }))
+    if (activeReport === 'inventario') setInventarioApplied((prev) => ({ ...prev, skip: nextSkip }))
+    if (activeReport === 'riego') setRiegoApplied((prev) => ({ ...prev, skip: nextSkip }))
+    if (activeReport === 'predicciones') setPrediccionesApplied((prev) => ({ ...prev, skip: nextSkip }))
   }
 
   function handleFirstPage() {
@@ -751,18 +879,11 @@ export const ReportesVistasPage: React.FC = () => {
         const avg = total ? values.reduce((a, b) => a + b, 0) / total : 0
         const min = total ? Math.min(...values) : 0
         const max = total ? Math.max(...values) : 0
-        const last = data[0]?.fecha_lectura ?? null
-
         return [
           { label: 'Lecturas', value: String(data.length), tone: 'emerald' },
           { label: 'Promedio', value: formatDecimal(avg), tone: 'teal' },
           { label: 'Mínimo', value: formatDecimal(min), tone: 'amber' },
-          {
-            label: 'Máximo',
-            value: formatDecimal(max),
-            helper: last ? `Última: ${formatDateTime(last)}` : undefined,
-            tone: 'neutral',
-          },
+          { label: 'Máximo', value: formatDecimal(max), tone: 'neutral' },
         ]
       }
 
@@ -773,14 +894,17 @@ export const ReportesVistasPage: React.FC = () => {
           return acc
         }, {})
         const topType = Object.entries(byType).sort((a, b) => b[1] - a[1])[0]
-
         return [
           { label: 'Alertas', value: String(data.length), tone: 'rose' },
           { label: 'Tipos', value: String(Object.keys(byType).length), tone: 'amber' },
-          { label: 'Invernaderos', value: String(new Set(data.map((x) => x.invernadero_id)).size), tone: 'teal' },
+          {
+            label: 'Invernaderos',
+            value: String(new Set(data.map((x) => x.invernadero_id)).size),
+            tone: 'teal',
+          },
           {
             label: 'Tipo principal',
-            value: topType?.[0] ?? '-',
+            value: topType?.[0] ?? '—',
             helper: topType ? `${topType[1]} registros` : 'Sin datos',
             tone: 'neutral',
           },
@@ -795,14 +919,17 @@ export const ReportesVistasPage: React.FC = () => {
           return acc
         }, {})
         const topStatus = Object.entries(byStatus).sort((a, b) => b[1] - a[1])[0]
-
         return [
           { label: 'Dispositivos', value: String(data.length), tone: 'emerald' },
           { label: 'Estados', value: String(Object.keys(byStatus).length), tone: 'teal' },
-          { label: 'Tipos', value: String(new Set(data.map((x) => x.tipo_dispositivo)).size), tone: 'amber' },
+          {
+            label: 'Tipos',
+            value: String(new Set(data.map((x) => x.tipo_dispositivo)).size),
+            tone: 'amber',
+          },
           {
             label: 'Estado principal',
-            value: topStatus?.[0] ?? '-',
+            value: topStatus?.[0] ?? '—',
             helper: topStatus ? `${topStatus[1]} equipos` : 'Sin datos',
             tone: 'neutral',
           },
@@ -817,9 +944,13 @@ export const ReportesVistasPage: React.FC = () => {
 
         return [
           { label: 'Eventos', value: String(data.length), tone: 'emerald' },
-          { label: 'Duración total (s)', value: formatDecimal(totalDuration), tone: 'teal' },
+          { label: 'Duración total s', value: formatDecimal(totalDuration), tone: 'teal' },
           { label: 'Duración promedio', value: formatDecimal(avgDuration), tone: 'amber' },
-          { label: 'Invernaderos', value: String(new Set(data.map((x) => x.invernadero_id)).size), tone: 'neutral' },
+          {
+            label: 'Invernaderos',
+            value: String(new Set(data.map((x) => x.invernadero_id)).size),
+            tone: 'neutral',
+          },
         ]
       }
 
@@ -828,21 +959,31 @@ export const ReportesVistasPage: React.FC = () => {
         const values = data.map((row) => Number(row.volumen_predicho_l)).filter((n) => !Number.isNaN(n))
         const total = values.reduce((a, b) => a + b, 0)
         const avg = values.length ? total / values.length : 0
-
         return [
           { label: 'Predicciones', value: String(data.length), tone: 'emerald' },
-          { label: 'Volumen total (L)', value: formatDecimal(total), tone: 'teal' },
+          { label: 'Volumen total L', value: formatDecimal(total), tone: 'teal' },
           { label: 'Volumen promedio', value: formatDecimal(avg), tone: 'amber' },
-          { label: 'Modelos', value: String(new Set(data.map((x) => x.modelo_usado)).size), tone: 'neutral' },
+          {
+            label: 'Modelos',
+            value: String(new Set(data.map((x) => x.modelo_usado)).size),
+            tone: 'neutral',
+          },
         ]
       }
 
       default:
         return []
     }
-  }, [activeReport, lecturasQuery.data, alertasQuery.data, inventarioQuery.data, riegoQuery.data, prediccionesQuery.data])
+  }, [
+    activeReport,
+    lecturasQuery.data,
+    alertasQuery.data,
+    inventarioQuery.data,
+    riegoQuery.data,
+    prediccionesQuery.data,
+  ])
 
-  const chartData = useMemo<ChartDatum[]>(() => {
+  const barChartData = useMemo<ChartDatum[]>(() => {
     switch (activeReport) {
       case 'lecturas':
         return groupChartData(lecturasQuery.data ?? [], (row) => row.sensor_nombre)
@@ -863,7 +1004,44 @@ export const ReportesVistasPage: React.FC = () => {
       default:
         return []
     }
-  }, [activeReport, lecturasQuery.data, alertasQuery.data, inventarioQuery.data, riegoQuery.data, prediccionesQuery.data])
+  }, [
+    activeReport,
+    lecturasQuery.data,
+    alertasQuery.data,
+    inventarioQuery.data,
+    riegoQuery.data,
+    prediccionesQuery.data,
+  ])
+
+  const donaChartData = useMemo<ChartDatum[]>(() => {
+    switch (activeReport) {
+      case 'lecturas':
+        return groupChartData(lecturasQuery.data ?? [], (row) => row.sensor_nombre)
+      case 'alertas':
+        return groupChartData(alertasQuery.data ?? [], (row) => row.tipo_alerta)
+      case 'inventario':
+        return groupChartData(
+          inventarioQuery.data ?? [],
+          (row) => row.estado_dispositivo_nombre ?? `ID ${row.estado_dispositivo_id}`
+        )
+      case 'riego':
+        return groupChartData(
+          riegoQuery.data ?? [],
+          (row) => row.invernadero_nombre ?? `ID ${row.invernadero_id}`
+        )
+      case 'predicciones':
+        return groupChartData(prediccionesQuery.data ?? [], (row) => row.modelo_usado)
+      default:
+        return []
+    }
+  }, [
+    activeReport,
+    lecturasQuery.data,
+    alertasQuery.data,
+    inventarioQuery.data,
+    riegoQuery.data,
+    prediccionesQuery.data,
+  ])
 
   async function getAllRowsForExport(): Promise<Record<string, string | number>[]> {
     switch (activeReport) {
@@ -876,7 +1054,6 @@ export const ReportesVistasPage: React.FC = () => {
           'Fecha lectura': formatDateTime(r.fecha_lectura),
         }))
       }
-
       case 'alertas': {
         const rows = await reportesService.getAlertasInvernaderoAll(stripPagination(alertasApplied))
         return rows.map((r) => ({
@@ -886,7 +1063,6 @@ export const ReportesVistasPage: React.FC = () => {
           'Fecha generación': formatDateTime(r.fecha_generacion),
         }))
       }
-
       case 'inventario': {
         const rows = await reportesService.getInventarioDispositivosAll(stripPagination(inventarioApplied))
         return rows.map((r) => ({
@@ -896,31 +1072,30 @@ export const ReportesVistasPage: React.FC = () => {
           Estado: r.estado_dispositivo_nombre ?? `ID ${r.estado_dispositivo_id}`,
         }))
       }
-
       case 'riego': {
         const rows = await reportesService.getRiegoEjecutadoAll(stripPagination(riegoApplied))
         return rows.map((r) => ({
           Invernadero: r.invernadero_nombre ?? `ID ${r.invernadero_id}`,
           Decisión: r.texto_decision,
           'Inicio evento': formatDateTime(r.inicio_evento),
-          'Duración (s)': r.duracion_segundos ?? '-',
+          'Duración s': r.duracion_segundos ?? '—',
         }))
       }
-
       case 'predicciones': {
         const rows = await reportesService.getPrediccionesAguaAll(stripPagination(prediccionesApplied))
         return rows.map((r) => ({
           'Fuente agua': r.fuente_agua,
           Modelo: r.modelo_usado,
           'Fecha objetivo': formatDate(r.fecha_objetivo),
-          'Volumen predicho (L)': r.volumen_predicho_l,
+          'Volumen predicho L': r.volumen_predicho_l,
         }))
       }
-
       default:
         return []
     }
   }
+
+  const exportFileName = `reporte-${activeReport}-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}`
 
   async function handleExportCSV() {
     try {
@@ -936,7 +1111,7 @@ export const ReportesVistasPage: React.FC = () => {
     try {
       setIsExporting(true)
       const rows = await getAllRowsForExport()
-      exportToExcel(rows, exportFileName)
+      await exportToExcel(rows, exportFileName)
     } finally {
       setIsExporting(false)
     }
@@ -962,52 +1137,32 @@ export const ReportesVistasPage: React.FC = () => {
     }
   }
 
-  const exportFileName = `reporte-${activeReport}-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}`
-
   const lecturasColumns: Column<VReporteLecturasSensor>[] = [
     { key: 'sensor_codigo', label: 'Código sensor' },
     { key: 'sensor_nombre', label: 'Sensor' },
-    {
-      key: 'lectura_valor',
-      label: 'Valor',
-      render: (value) => formatDecimal(value),
-    },
-    {
-      key: 'fecha_lectura',
-      label: 'Fecha lectura',
-      render: (value) => formatDateTime(value),
-    },
+    { key: 'lectura_valor', label: 'Valor', render: (value) => formatDecimal(value) },
+    { key: 'fecha_lectura', label: 'Fecha lectura', render: (value) => formatDateTime(value) },
   ]
 
   const alertasColumns: Column<VReporteAlertasInvernadero>[] = [
-    {
-      key: 'tipo_alerta',
-      label: 'Tipo alerta',
-      render: (value) => <StatusBadge label={String(value)} />,
-    },
+    { key: 'tipo_alerta', label: 'Tipo alerta', render: (value) => <StatusBadge label={String(value)} /> },
     { key: 'mensaje', label: 'Mensaje' },
     {
       key: 'invernadero_nombre',
       label: 'Invernadero',
       render: (value, row) => value ?? `ID ${row.invernadero_id}`,
     },
-    {
-      key: 'fecha_generacion',
-      label: 'Fecha generación',
-      render: (value) => formatDateTime(value),
-    },
+    { key: 'fecha_generacion', label: 'Fecha generación', render: (value) => formatDateTime(value) },
   ]
 
   const inventarioColumns: Column<VReporteInventarioDispositivos>[] = [
-    { key: 'codigo', label: 'Código', className: 'font-semibold text-stone-900 dark:text-zinc-100' },
+    { key: 'codigo', label: 'Código', className: 'font-medium' },
     { key: 'nombre', label: 'Dispositivo' },
     { key: 'tipo_dispositivo', label: 'Tipo dispositivo' },
     {
       key: 'estado_dispositivo_nombre',
       label: 'Estado',
-      render: (value, row) => (
-        <StatusBadge label={String(value ?? `ID ${row.estado_dispositivo_id}`)} />
-      ),
+      render: (value) => <StatusBadge label={String(value ?? 'Desconocido')} />,
     },
   ]
 
@@ -1018,52 +1173,46 @@ export const ReportesVistasPage: React.FC = () => {
       render: (value, row) => value ?? `ID ${row.invernadero_id}`,
     },
     { key: 'texto_decision', label: 'Decisión' },
-    {
-      key: 'inicio_evento',
-      label: 'Inicio evento',
-      render: (value) => formatDateTime(value),
-    },
+    { key: 'inicio_evento', label: 'Inicio evento', render: (value) => formatDateTime(value) },
     {
       key: 'duracion_segundos',
-      label: 'Duración (s)',
-      render: (value) => (value !== null ? formatDecimal(value) : '-'),
+      label: 'Duración s',
+      render: (value) => (value != null ? formatDecimal(value) : '—'),
     },
   ]
 
   const prediccionesColumns: Column<VReportePrediccionesAgua>[] = [
     { key: 'fuente_agua', label: 'Fuente agua' },
     { key: 'modelo_usado', label: 'Modelo' },
-    {
-      key: 'fecha_objetivo',
-      label: 'Fecha objetivo',
-      render: (value) => formatDate(value),
-    },
+    { key: 'fecha_objetivo', label: 'Fecha objetivo', render: (value) => formatDate(value) },
     {
       key: 'volumen_predicho_l',
-      label: 'Volumen predicho (L)',
+      label: 'Volumen predicho L',
       render: (value) => formatDecimal(value),
     },
   ]
 
-  const limitOptions = [
-    { value: 10, label: '10' },
-    { value: 20, label: '20' },
-    { value: 50, label: '50' },
-    { value: 100, label: '100' },
-  ]
+  function renderSearchValue() {
+    if (activeReport === 'lecturas') return lecturasDraft.q
+    if (activeReport === 'alertas') return alertasDraft.q
+    if (activeReport === 'inventario') return inventarioDraft.q
+    if (activeReport === 'riego') return riegoDraft.q
+    return prediccionesDraft.q
+  }
 
-  const renderFilters = () => {
+  function updateSearchValue(value: string) {
+    if (activeReport === 'lecturas') setLecturasDraft((prev) => ({ ...prev, q: value }))
+    if (activeReport === 'alertas') setAlertasDraft((prev) => ({ ...prev, q: value }))
+    if (activeReport === 'inventario') setInventarioDraft((prev) => ({ ...prev, q: value }))
+    if (activeReport === 'riego') setRiegoDraft((prev) => ({ ...prev, q: value }))
+    if (activeReport === 'predicciones') setPrediccionesDraft((prev) => ({ ...prev, q: value }))
+  }
+
+  function renderFilters() {
     switch (activeReport) {
       case 'lecturas':
         return (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <InputField
-              id="lecturas_q"
-              label="Búsqueda"
-              value={lecturasDraft.q}
-              onChange={(value) => setLecturasDraft((prev) => ({ ...prev, q: value }))}
-              placeholder="Código o nombre..."
-            />
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <InputField
               id="sensor_codigo"
               label="Código sensor"
@@ -1075,13 +1224,6 @@ export const ReportesVistasPage: React.FC = () => {
               label="Nombre sensor"
               value={lecturasDraft.sensor_nombre}
               onChange={(value) => setLecturasDraft((prev) => ({ ...prev, sensor_nombre: value }))}
-            />
-            <SelectField
-              id="lecturas_limit"
-              label="Registros por página"
-              value={lecturasDraft.limit}
-              onChange={(value) => setLecturasDraft((prev) => ({ ...prev, limit: value }))}
-              options={limitOptions}
             />
             <InputField
               id="lecturas_fecha_desde"
@@ -1097,19 +1239,19 @@ export const ReportesVistasPage: React.FC = () => {
               value={lecturasDraft.fecha_hasta}
               onChange={(value) => setLecturasDraft((prev) => ({ ...prev, fecha_hasta: value }))}
             />
+            <SelectField
+              id="lecturas_limit"
+              label="Registros por página"
+              value={lecturasDraft.limit}
+              onChange={(value) => setLecturasDraft((prev) => ({ ...prev, limit: value }))}
+              options={limitOptions.map((value) => ({ value, label: String(value) }))}
+            />
           </div>
         )
 
       case 'alertas':
         return (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <InputField
-              id="alertas_q"
-              label="Búsqueda"
-              value={alertasDraft.q}
-              onChange={(value) => setAlertasDraft((prev) => ({ ...prev, q: value }))}
-              placeholder="Tipo o mensaje..."
-            />
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
             <InputField
               id="tipo_alerta"
               label="Tipo alerta"
@@ -1148,21 +1290,14 @@ export const ReportesVistasPage: React.FC = () => {
               label="Registros por página"
               value={alertasDraft.limit}
               onChange={(value) => setAlertasDraft((prev) => ({ ...prev, limit: value }))}
-              options={limitOptions}
+              options={limitOptions.map((value) => ({ value, label: String(value) }))}
             />
           </div>
         )
 
       case 'inventario':
         return (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <InputField
-              id="inventario_q"
-              label="Búsqueda"
-              value={inventarioDraft.q}
-              onChange={(value) => setInventarioDraft((prev) => ({ ...prev, q: value }))}
-              placeholder="Código, nombre o tipo..."
-            />
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <InputField
               id="inventario_codigo"
               label="Código"
@@ -1179,39 +1314,46 @@ export const ReportesVistasPage: React.FC = () => {
               id="tipo_dispositivo"
               label="Tipo dispositivo"
               value={inventarioDraft.tipo_dispositivo}
-              onChange={(value) =>
-                setInventarioDraft((prev) => ({ ...prev, tipo_dispositivo: value }))
-              }
+              onChange={(value) => setInventarioDraft((prev) => ({ ...prev, tipo_dispositivo: value }))}
             />
-            <InputField
-              id="estado_dispositivo_id"
-              label="Estado ID"
-              type="number"
-              value={inventarioDraft.estado_dispositivo_id}
-              onChange={(value) =>
-                setInventarioDraft((prev) => ({ ...prev, estado_dispositivo_id: value }))
-              }
-            />
+            <div className="space-y-2">
+              <Label>Estado del dispositivo</Label>
+              <Select
+                value={inventarioDraft.estado_dispositivo_id?.toString() ?? 'all'}
+                onValueChange={(value) => {
+                  if (value === 'all') {
+                    setInventarioDraft((prev) => ({ ...prev, estado_dispositivo_id: '' }))
+                  } else {
+                    setInventarioDraft((prev) => ({ ...prev, estado_dispositivo_id: value }))
+                  }
+                }}
+              >
+                <SelectTrigger className="rounded-2xl border-border/70 bg-background">
+                  <SelectValue placeholder="Todos los estados" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los estados</SelectItem>
+                  {allEstadosOptions.map((estado) => (
+                    <SelectItem key={estado.id} value={String(estado.id)}>
+                      {estado.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <SelectField
               id="inventario_limit"
               label="Registros por página"
               value={inventarioDraft.limit}
               onChange={(value) => setInventarioDraft((prev) => ({ ...prev, limit: value }))}
-              options={limitOptions}
+              options={limitOptions.map((value) => ({ value, label: String(value) }))}
             />
           </div>
         )
 
       case 'riego':
         return (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <InputField
-              id="riego_q"
-              label="Búsqueda"
-              value={riegoDraft.q}
-              onChange={(value) => setRiegoDraft((prev) => ({ ...prev, q: value }))}
-              placeholder="Texto decisión..."
-            />
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <InputField
               id="riego_invernadero_id"
               label="Invernadero ID"
@@ -1224,13 +1366,6 @@ export const ReportesVistasPage: React.FC = () => {
               label="Decisión"
               value={riegoDraft.texto_decision}
               onChange={(value) => setRiegoDraft((prev) => ({ ...prev, texto_decision: value }))}
-            />
-            <SelectField
-              id="riego_limit"
-              label="Registros por página"
-              value={riegoDraft.limit}
-              onChange={(value) => setRiegoDraft((prev) => ({ ...prev, limit: value }))}
-              options={limitOptions}
             />
             <InputField
               id="riego_fecha_desde"
@@ -1246,59 +1381,51 @@ export const ReportesVistasPage: React.FC = () => {
               value={riegoDraft.fecha_hasta}
               onChange={(value) => setRiegoDraft((prev) => ({ ...prev, fecha_hasta: value }))}
             />
+            <SelectField
+              id="riego_limit"
+              label="Registros por página"
+              value={riegoDraft.limit}
+              onChange={(value) => setRiegoDraft((prev) => ({ ...prev, limit: value }))}
+              options={limitOptions.map((value) => ({ value, label: String(value) }))}
+            />
           </div>
         )
 
       case 'predicciones':
         return (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <InputField
-              id="predicciones_q"
-              label="Búsqueda"
-              value={prediccionesDraft.q}
-              onChange={(value) => setPrediccionesDraft((prev) => ({ ...prev, q: value }))}
-              placeholder="Fuente o modelo..."
-            />
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <InputField
               id="fuente_agua"
               label="Fuente agua"
               value={prediccionesDraft.fuente_agua}
-              onChange={(value) =>
-                setPrediccionesDraft((prev) => ({ ...prev, fuente_agua: value }))
-              }
+              onChange={(value) => setPrediccionesDraft((prev) => ({ ...prev, fuente_agua: value }))}
             />
             <InputField
               id="modelo_usado"
               label="Modelo"
               value={prediccionesDraft.modelo_usado}
-              onChange={(value) =>
-                setPrediccionesDraft((prev) => ({ ...prev, modelo_usado: value }))
-              }
+              onChange={(value) => setPrediccionesDraft((prev) => ({ ...prev, modelo_usado: value }))}
             />
             <InputField
               id="predicciones_fecha_desde"
               label="Fecha desde"
               type="date"
               value={prediccionesDraft.fecha_desde}
-              onChange={(value) =>
-                setPrediccionesDraft((prev) => ({ ...prev, fecha_desde: value }))
-              }
+              onChange={(value) => setPrediccionesDraft((prev) => ({ ...prev, fecha_desde: value }))}
             />
             <InputField
               id="predicciones_fecha_hasta"
               label="Fecha hasta"
               type="date"
               value={prediccionesDraft.fecha_hasta}
-              onChange={(value) =>
-                setPrediccionesDraft((prev) => ({ ...prev, fecha_hasta: value }))
-              }
+              onChange={(value) => setPrediccionesDraft((prev) => ({ ...prev, fecha_hasta: value }))}
             />
             <SelectField
               id="predicciones_limit"
               label="Registros por página"
               value={prediccionesDraft.limit}
               onChange={(value) => setPrediccionesDraft((prev) => ({ ...prev, limit: value }))}
-              options={limitOptions}
+              options={limitOptions.map((value) => ({ value, label: String(value) }))}
             />
           </div>
         )
@@ -1309,147 +1436,173 @@ export const ReportesVistasPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.12),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(20,184,166,0.10),_transparent_24%)] px-4 py-6 md:px-8 md:py-8 dark:bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.10),_transparent_24%),radial-gradient(circle_at_top_right,_rgba(20,184,166,0.08),_transparent_20%)]">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <div className="relative overflow-hidden rounded-[28px] border border-emerald-100/70 bg-gradient-to-br from-white via-emerald-50/70 to-teal-50/60 p-6 shadow-[0_18px_50px_-24px_rgba(16,185,129,0.35)] dark:border-emerald-900/30 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-950">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(16,185,129,0.18),_transparent_26%),radial-gradient(circle_at_bottom_left,_rgba(20,184,166,0.14),_transparent_24%)]" />
-          <div className="relative">
-            <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-              <div>
-                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200/80 bg-white/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-700 backdrop-blur dark:border-emerald-900/40 dark:bg-zinc-900/60 dark:text-emerald-300">
-                  Panel administrativo
-                </div>
-
-                <h1 className="mt-4 text-3xl font-black tracking-tight text-stone-900 dark:text-white md:text-5xl">
-                  Reportes de vistas
-                </h1>
-
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-600 dark:text-zinc-300 md:text-base">
-                  Consulta métricas, revisa tendencias y exporta resultados desde una vista unificada para operación y análisis.
-                </p>
-              </div>
-
-              <div className="grid gap-2 print:hidden sm:grid-cols-2 xl:min-w-[620px] xl:grid-cols-5">
-                <button
-                  type="button"
-                  onClick={() => currentQuery.refetch()}
-                  disabled={currentQuery.isFetching || isExporting}
-                  className="rounded-xl border border-white/70 bg-white/80 px-4 py-2.5 text-sm font-semibold text-stone-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-white disabled:opacity-50 dark:border-white/10 dark:bg-zinc-800/80 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                >
-                  {currentQuery.isFetching ? 'Recargando...' : 'Recargar'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleExportCSV}
-                  disabled={isExporting}
-                  className="rounded-xl border border-white/70 bg-white/80 px-4 py-2.5 text-sm font-semibold text-stone-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-white disabled:opacity-50 dark:border-white/10 dark:bg-zinc-800/80 dark:text-zinc-200"
-                >
-                  {isExporting ? 'Exportando...' : 'CSV'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleExportExcel}
-                  disabled={isExporting}
-                  className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_20px_-10px_rgba(5,150,105,0.8)] transition hover:-translate-y-0.5 hover:bg-emerald-700 disabled:opacity-50"
-                >
-                  {isExporting ? 'Exportando...' : 'Excel'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleExportPDF}
-                  disabled={isExporting}
-                  className="rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_20px_-10px_rgba(13,148,136,0.8)] transition hover:-translate-y-0.5 hover:bg-teal-700 disabled:opacity-50"
-                >
-                  {isExporting ? 'Exportando...' : 'PDF'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handlePrintAll}
-                  disabled={isExporting}
-                  className="rounded-xl bg-stone-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-stone-800 disabled:opacity-50 dark:bg-emerald-700 dark:hover:bg-emerald-600"
-                >
-                  {isExporting ? 'Preparando...' : 'Imprimir'}
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-6 flex flex-wrap gap-2 border-t border-emerald-100/70 pt-5 print:hidden dark:border-zinc-800">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveReport(tab.id)}
-                  className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
-                    activeReport === tab.id
-                      ? 'bg-stone-900 text-white shadow-sm dark:bg-emerald-600'
-                      : 'border border-white/70 bg-white/70 text-stone-600 hover:-translate-y-0.5 hover:bg-white dark:border-white/10 dark:bg-zinc-900/70 dark:text-zinc-300 dark:hover:bg-zinc-800'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <form onSubmit={handleApplyFilters} className={`${panelClass} space-y-5 p-5 print:hidden`}>
-          <div className="flex flex-col gap-2 border-b border-stone-200/70 pb-3 dark:border-zinc-800">
-            <h2 className="text-base font-bold text-stone-900 dark:text-white">Filtros · {activeTitle}</h2>
-            <p className="text-xs text-stone-500 dark:text-zinc-400">
-              Ajusta criterios, rango temporal y tamaño de página para refinar el reporte.
+    <div className="min-h-full space-y-6 bg-background">
+      {/* HEADER */}
+      <section className="rounded-[28px] border border-border/70 bg-card px-6 py-6 md:px-8 md:py-8">
+        <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+          <div className="max-w-2xl">
+            <Badge
+              variant="secondary"
+              className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300"
+            >
+              Reportería
+            </Badge>
+            <h1 className="mt-4 text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+              Reportes de vistas
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
+              Consulta métricas, revisa tendencias y exporta resultados desde una vista unificada para operación y análisis.
             </p>
           </div>
 
-          {renderFilters()}
+          <div className="flex flex-wrap gap-2 print:hidden">
+            <Button variant="outline" className="rounded-2xl" onClick={() => currentQuery.refetch()} disabled={currentQuery.isFetching || isExporting}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              {currentQuery.isFetching ? 'Recargando...' : 'Recargar'}
+            </Button>
+            <Button variant="outline" className="rounded-2xl" onClick={handleExportCSV} disabled={isExporting}>
+              <Download className="mr-2 h-4 w-4" />
+              CSV
+            </Button>
+            <Button className="rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700" onClick={handleExportExcel} disabled={isExporting}>
+              <Download className="mr-2 h-4 w-4" />
+              Excel
+            </Button>
+            <Button variant="outline" className="rounded-2xl" onClick={handleExportPDF} disabled={isExporting}>
+              <Download className="mr-2 h-4 w-4" />
+              PDF
+            </Button>
+            <Button variant="outline" className="rounded-2xl" onClick={handlePrintAll} disabled={isExporting}>
+              <Printer className="mr-2 h-4 w-4" />
+              Imprimir
+            </Button>
+          </div>
+        </div>
+      </section>
 
-          <div className="flex flex-wrap gap-2 pt-2">
+      {/* TABS */}
+      <div className="flex flex-wrap gap-2 border-b border-border/70 pb-4 print:hidden">
+        {tabs.map((tab) => {
+          const Icon = tab.icon
+          const active = activeReport === tab.id
+          return (
             <button
-              type="submit"
-              disabled={currentQuery.isFetching || isExporting}
-              className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_20px_-10px_rgba(5,150,105,0.8)] transition hover:-translate-y-0.5 hover:bg-emerald-700 disabled:opacity-50"
-            >
-              {currentQuery.isFetching ? 'Aplicando...' : 'Aplicar filtros'}
-            </button>
-            <button
+              key={tab.id}
               type="button"
-              onClick={handleResetFilters}
-              disabled={currentQuery.isFetching || isExporting}
-              className="rounded-xl border border-stone-200/80 bg-white/80 px-5 py-2.5 text-sm font-semibold text-stone-700 transition hover:bg-white disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800/90 dark:text-zinc-200"
+              onClick={() => setActiveReport(tab.id)}
+              className={[
+                'inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium transition-all',
+                active
+                  ? 'bg-emerald-600 text-white'
+                  : 'border border-border/70 bg-background text-muted-foreground hover:bg-accent hover:text-foreground',
+              ].join(' ')}
             >
-              Limpiar filtros
+              <Icon className="h-4 w-4" />
+              {tab.label}
             </button>
+          )
+        })}
+      </div>
+
+      {/* ESTADÍSTICAS */}
+      <StatsCards stats={reportStats} />
+
+      {/* GRÁFICOS EN DISPOSICIÓN HORIZONTAL (2 columnas) */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <BarChartPanel title={`Distribución por categoría - ${activeTitle}`} chartData={barChartData} />
+        <DonaChartPanel title={`Distribución porcentual - ${activeTitle}`} data={donaChartData} />
+      </div>
+
+      {/* BÚSQUEDA Y ACCIONES */}
+      <SurfaceCard
+        title="Búsqueda y acciones"
+        description="Busca en tiempo real y exporta los datos actuales."
+        action={<Badge variant="outline" className="rounded-full">{currentData.length} registros</Badge>}
+      >
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="relative w-full xl:max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={renderSearchValue()}
+              onChange={(e) => updateSearchValue(e.target.value)}
+              placeholder="Buscar en tiempo real..."
+              className="h-11 rounded-2xl border-border/70 bg-background pl-10"
+            />
           </div>
-        </form>
-
-        {currentQuery.isError && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50/90 px-4 py-3 text-sm font-medium text-rose-800 dark:border-rose-900/30 dark:bg-rose-950/20 dark:text-rose-400">
-            Ocurrió un error al cargar la información del reporte.
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" className="rounded-2xl" onClick={() => currentQuery.refetch()} disabled={currentQuery.isFetching || isExporting}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Recargar
+            </Button>
+            <Button variant="outline" className="rounded-2xl" onClick={handleExportCSV} disabled={isExporting}>
+              CSV
+            </Button>
+            <Button className="rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700" onClick={handleExportExcel} disabled={isExporting}>
+              Excel
+            </Button>
+            <Button variant="outline" className="rounded-2xl" onClick={handleExportPDF} disabled={isExporting}>
+              PDF
+            </Button>
+            <Button variant="outline" className="rounded-2xl" onClick={handlePrintAll} disabled={isExporting}>
+              Imprimir
+            </Button>
           </div>
-        )}
+        </div>
+      </SurfaceCard>
 
-        {isExporting && (
-          <div className="rounded-2xl border border-teal-200 bg-teal-50/90 px-4 py-3 text-sm font-medium text-teal-800 dark:border-teal-900/30 dark:bg-teal-950/20 dark:text-teal-400">
-            Preparando exportación completa con los filtros aplicados...
+      {/* FILTROS ADICIONALES */}
+      <SurfaceCard
+        title={`Filtros adicionales · ${activeTitle}`}
+        description="Refina los resultados con criterios específicos."
+        action={
+          <Button variant="outline" className="rounded-2xl" onClick={handleResetFilters}>
+            <Filter className="mr-2 h-4 w-4" />
+            Limpiar filtros
+          </Button>
+        }
+      >
+        {renderFilters()}
+      </SurfaceCard>
+
+      {/* ERRORES Y EXPORTACIÓN */}
+      {currentQuery.isError && (
+        <div className="rounded-[24px] border border-rose-200 bg-rose-50 p-4 text-sm font-medium text-rose-700 dark:border-rose-900/30 dark:bg-rose-950/20 dark:text-rose-300">
+          Ocurrió un error al cargar la información del reporte.
+        </div>
+      )}
+
+      {isExporting && (
+        <div className="rounded-[24px] border border-teal-200 bg-teal-50 p-4 text-sm font-medium text-teal-700 dark:border-teal-900/30 dark:bg-teal-950/20 dark:text-teal-300">
+          Preparando exportación completa con los filtros aplicados...
+        </div>
+      )}
+
+      {/* TABLA DE RESULTADOS */}
+      {currentQuery.isLoading ? (
+        <SurfaceCard title="Resultados" description="Cargando información del reporte seleccionado.">
+          <div className="flex h-56 flex-col items-center justify-center gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-emerald-600" />
+            <p className="text-sm text-muted-foreground">Cargando información...</p>
           </div>
-        )}
+        </SurfaceCard>
+      ) : (
+        <div className="space-y-4">
+          {currentQuery.isFetching && !currentQuery.isLoading && (
+            <div className="rounded-[24px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 dark:border-emerald-900/30 dark:bg-emerald-950/20 dark:text-emerald-300">
+              Actualizando resultados...
+            </div>
+          )}
 
-        {currentQuery.isLoading ? (
-          <div className={`${panelClass} flex h-56 flex-col items-center justify-center gap-2`}>
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-stone-200 border-t-emerald-600 dark:border-zinc-700 dark:border-t-emerald-500" />
-            <p className="text-sm text-stone-500 dark:text-zinc-400">Cargando información...</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {currentQuery.isFetching && !currentQuery.isLoading && (
-              <div className="rounded-2xl border border-emerald-100 bg-emerald-50/90 px-4 py-2 text-sm font-medium text-emerald-800 dark:border-emerald-900/20 dark:bg-emerald-950/10 dark:text-emerald-400">
-                Actualizando resultados...
-              </div>
-            )}
-
-            <StatsCards stats={reportStats} />
-
-            <AnalyticsPanel title={`Distribución - ${activeTitle}`} chartData={chartData} />
-
+          <SurfaceCard
+            title={`Resultados · ${activeTitle}`}
+            description="Vista tabular del reporte actual con los filtros aplicados."
+            action={
+              <Badge variant="outline" className="rounded-full">
+                <Database className="mr-2 h-3.5 w-3.5" />
+                {rowsLoaded} filas visibles
+              </Badge>
+            }
+          >
             {activeReport === 'lecturas' && (
               <ReportTable
                 data={lecturasQuery.data ?? []}
@@ -1458,7 +1611,6 @@ export const ReportesVistasPage: React.FC = () => {
                 getRowKey={(row) => row.lectura_id}
               />
             )}
-
             {activeReport === 'alertas' && (
               <ReportTable
                 data={alertasQuery.data ?? []}
@@ -1467,7 +1619,6 @@ export const ReportesVistasPage: React.FC = () => {
                 getRowKey={(row) => row.alerta_id}
               />
             )}
-
             {activeReport === 'inventario' && (
               <ReportTable
                 data={inventarioQuery.data ?? []}
@@ -1476,7 +1627,6 @@ export const ReportesVistasPage: React.FC = () => {
                 getRowKey={(row) => row.dispositivo_id}
               />
             )}
-
             {activeReport === 'riego' && (
               <ReportTable
                 data={riegoQuery.data ?? []}
@@ -1485,7 +1635,6 @@ export const ReportesVistasPage: React.FC = () => {
                 getRowKey={(row) => row.decision_id}
               />
             )}
-
             {activeReport === 'predicciones' && (
               <ReportTable
                 data={prediccionesQuery.data ?? []}
@@ -1494,22 +1643,25 @@ export const ReportesVistasPage: React.FC = () => {
                 getRowKey={(row) => row.prediccion_id}
               />
             )}
+          </SurfaceCard>
 
-            {!currentQuery.isError && (
-              <PaginationControls
-                page={currentPage}
-                limit={currentLimit}
-                rowsLoaded={rowsLoaded}
-                onFirst={handleFirstPage}
-                onPrevious={handlePreviousPage}
-                onNext={handleNextPage}
-                hasNext={hasNext}
-                hasPrevious={hasPrevious}
-              />
-            )}
-          </div>
-        )}
-      </div>
+          {/* PAGINACIÓN */}
+          {!currentQuery.isError && (
+            <PaginationControls
+              page={currentPage}
+              limit={currentLimit}
+              rowsLoaded={rowsLoaded}
+              onFirst={handleFirstPage}
+              onPrevious={handlePreviousPage}
+              onNext={handleNextPage}
+              hasNext={hasNext}
+              hasPrevious={hasPrevious}
+            />
+          )}
+        </div>
+      )}
     </div>
   )
 }
+
+export default ReportesVistasPage

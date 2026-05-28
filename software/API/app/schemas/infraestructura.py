@@ -62,7 +62,7 @@ class AtrapanieblaBase(BaseModel):
     tipo_malla: str | None = Field(None, max_length=50)
     orientacion: str | None = Field(None, max_length=30)
     estado_atrapaniebla_id: int
-    fecha_instalacion: date | None = None
+    fecha_instalacion: datetime | None = None
 
 class AtrapanieblaCreate(AtrapanieblaBase): pass
 

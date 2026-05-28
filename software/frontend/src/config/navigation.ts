@@ -4,101 +4,87 @@ import {
   Cpu,
   CloudRain,
   BarChart3,
-  Settings,
-  ShieldCheck,
   Leaf,
   MapPin,
   Droplets,
   Activity,
   Link2,
-} from 'lucide-react'
-import type { UserRole } from '@/context/AuthContext'
+  ClipboardList,
+} from "lucide-react";
+import type { UserRole } from "@/context/AuthContext";
 
 export type NavItem = {
-  title: string
-  to: string
-  icon: React.ComponentType<{ className?: string }>
-  allowedRoles: UserRole[]
-}
+  title: string;
+  to: string;
+  icon: React.ComponentType<{ className?: string }>;
+  allowedRoles: UserRole[];
+};
 
 export const dashboardNavItems: NavItem[] = [
-  
   {
-    title: 'Resumen',
-    to: '/dashboard',
+    title: "Resumen",
+    to: "/dashboard",
     icon: LayoutDashboard,
-    allowedRoles: ['admin', 'docente', 'tecnico', 'estudiante', 'invitado'],
+    allowedRoles: ["admin", "docente", "tecnico", "estudiante", "invitado"],
   },
   {
-    title: 'Usuarios',
-    to: '/dashboard/usuarios',
+    title: "Usuarios",
+    to: "/dashboard/usuarios",
     icon: Users,
-    allowedRoles: ['admin'],
+    allowedRoles: ["admin"],
   },
   {
-    title: 'Roles',
-    to: '/dashboard/roles',
-    icon: ShieldCheck,
-    allowedRoles: ['admin'],
-  },
-  {
-    title: 'Dispositivos',
-    to: '/dashboard/dispositivos',
+    title: "Dispositivos",
+    to: "/dashboard/dispositivos",
     icon: Cpu,
-    allowedRoles: ['admin', 'tecnico'],
+    allowedRoles: ["admin", "tecnico"],
   },
   {
-    title: 'Sensores',
-    to: '/dashboard/sensores',
+    title: "Sensores",
+    to: "/dashboard/sensores",
     icon: Activity,
-    allowedRoles: ['admin', 'tecnico'],
-  },/*
+    allowedRoles: ["admin", "tecnico"],
+  },
   {
-    title: 'Captación',
-    to: '/dashboard/captacion',
-    icon: CloudRain,
-    allowedRoles: ['admin', 'tecnico', 'docente'],
-  },*/
-  {
-    title: 'Ubicaciones',
-    to: '/dashboard/ubicaciones',
+    title: "Ubicaciones",
+    to: "/dashboard/ubicaciones",
     icon: MapPin,
-    allowedRoles: ['admin', 'tecnico', 'docente'],
+    allowedRoles: ["admin", "tecnico", "docente"],
   },
   {
-    title: 'Invernaderos',
-    to: '/dashboard/invernaderos',
+    title: "Invernaderos",
+    to: "/dashboard/invernaderos",
     icon: Leaf,
-    allowedRoles: ['admin', 'tecnico', 'docente'],
+    allowedRoles: ["admin", "tecnico", "docente"],
   },
   {
-    title: 'Atrapanieblas',
-    to: '/dashboard/atrapanieblas',
+    title: "Atrapanieblas",
+    to: "/dashboard/atrapanieblas",
     icon: CloudRain,
-    allowedRoles: ['admin', 'tecnico', 'docente'],
+    allowedRoles: ["admin", "tecnico", "docente"],
   },
   {
-    title: 'Fuentes de Agua',
-    to: '/dashboard/fuentes-agua',
+    title: "Fuentes de Agua",
+    to: "/dashboard/fuentes-agua",
     icon: Droplets,
-    allowedRoles: ['admin', 'tecnico', 'docente'],
+    allowedRoles: ["admin", "tecnico", "docente"],
   },
   {
-    title: 'Atrapaniebla - Fuente',
-    to: '/dashboard/fuentes-agua-atrapanieblas',
+    title: "Atrapaniebla - Fuente",
+    to: "/dashboard/fuentes-agua-atrapanieblas",
     icon: Link2,
-    allowedRoles: ['admin', 'tecnico', 'docente'],
+    allowedRoles: ["admin", "tecnico", "docente"],
   },
   {
-    title: 'Reportes',
-    to: '/dashboard/reportes',
-    icon: BarChart3,
-    allowedRoles: ['admin', 'docente', 'tecnico', 'estudiante'],
-  },/* Corregir bug, envia a welcome sin razón alguna y no permite la operavilidad del sistema
+    title: "Solicitudes",
+    to: "/dashboard/solicitudes",
+    icon: ClipboardList,
+    allowedRoles: ["admin", "tecnico", "docente"],
+  },
   {
-    title: 'Configuración',
-    to: '/dashboard/configuracion',
-    icon: Settings,
-    allowedRoles: ['admin'],
-  },*/
-]
+    title: "Reportes",
+    to: "/dashboard/reportes",
+    icon: BarChart3,
+    allowedRoles: ["admin", "docente", "tecnico", "estudiante"],
+  },
+];
