@@ -11,6 +11,7 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
+
 # revision identifiers, used by Alembic.
 revision: str = 'a2f0088855d4'
 down_revision: Union[str, Sequence[str], None] = '353e9b33db40'
@@ -58,17 +59,21 @@ def upgrade() -> None:
     )
     op.create_table('auditoria_acciones',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('usuario_id', sa.Integer(), nullable=True),
+    # CAMBIO: usuario_id a usuario_ci
+    sa.Column('usuario_ci', sa.String(length=20), nullable=True),
     sa.Column('accion', sa.String(length=100), nullable=False),
     sa.Column('entidad_afectada', sa.String(length=100), nullable=False),
     sa.Column('entidad_id', sa.Integer(), nullable=True),
     sa.Column('detalle_json', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
     sa.Column('ip_origen', postgresql.INET(), nullable=True),
     sa.Column('fecha_accion', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.ForeignKeyConstraint(['usuario_id'], ['users.id'], ondelete='SET NULL'),
+    # CAMBIO: Apunta a users.ci en lugar de users.id
+    sa.ForeignKeyConstraint(['usuario_ci'], ['users.ci'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index(op.f('ix_auditoria_acciones_usuario_id'), 'auditoria_acciones', ['usuario_id'], unique=False)
+    # CAMBIO: Actualización del nombre de índice
+    op.create_index(op.f('ix_auditoria_acciones_usuario_ci'), 'auditoria_acciones', ['usuario_ci'], unique=False)
+    
     op.create_table('ubicaciones',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('tipo_ubicacion_id', sa.Integer(), nullable=False),
@@ -192,7 +197,8 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_ubicaciones_ubicacion_padre_id'), table_name='ubicaciones')
     op.drop_index(op.f('ix_ubicaciones_tipo_ubicacion_id'), table_name='ubicaciones')
     op.drop_table('ubicaciones')
-    op.drop_index(op.f('ix_auditoria_acciones_usuario_id'), table_name='auditoria_acciones')
+    # CAMBIO: Actualización del nombre de índice para el downgrade
+    op.drop_index(op.f('ix_auditoria_acciones_usuario_ci'), table_name='auditoria_acciones')
     op.drop_table('auditoria_acciones')
     op.drop_table('tipos_ubicacion')
     op.drop_table('tipos_fuente_agua')

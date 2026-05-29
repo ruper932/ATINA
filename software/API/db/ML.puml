@@ -1,0 +1,30 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam linetype polyline
+
+skinparam usecase {
+  BackgroundColor LightYellow
+  BorderColor Orange
+}
+
+actor "Backend\n(FastAPI)" as sis <<Sistema>>
+actor "ESP32\n(Edge)" as esp32 <<Sistema>>
+actor "Docente" as doc
+
+package "Sistema: Machine Learning" {
+  usecase "Ejecutar Predicción\nVolumétrica (ML1)" as UC1
+  usecase "Consultar Histórico\nClimático" as UC_Data
+  usecase "Calcular Necesidad\nde Riego (ML2)" as UC2
+  usecase "Ejecutar Simulador\nde Escenarios (ML3)" as UC3
+  usecase "Modificar Variables\nManuales" as UC_Var
+}
+
+sis --> UC1 : Proceso Diario
+esp32 --> UC2 : Autónomo Local
+doc --> UC3 : Uso Educativo
+
+UC1 ..> UC_Data : <<include>>
+UC3 ..> UC_Var : <<include>>
+@enduml

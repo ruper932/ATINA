@@ -91,8 +91,9 @@ class Alerta(Base):
         DateTime(timezone=True),
         nullable=True,
     )
-    usuario_reconoce_id: Mapped[int | None] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL"),
+    usuario_reconoce_ci: Mapped[str | None] = mapped_column(
+        String(20),
+        ForeignKey("users.ci", ondelete="SET NULL"),
         nullable=True,
     )
 

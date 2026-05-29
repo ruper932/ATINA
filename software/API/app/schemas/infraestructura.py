@@ -34,7 +34,9 @@ class InvernaderoBase(BaseModel):
     prioridad_riego: int = Field(default=1, ge=1, le=10)
     estado_invernadero_id: int
 
+
 class InvernaderoCreate(InvernaderoBase): pass
+
 
 class InvernaderoUpdate(InvernaderoBase):
     ubicacion_id: int | None = None
@@ -43,11 +45,13 @@ class InvernaderoUpdate(InvernaderoBase):
     area_m2: Decimal | None = None
     estado_invernadero_id: int | None = None
 
+
 class InvernaderoResponse(InvernaderoBase):
     id: int
     creado_en: datetime
+    ubicacion_nombre: str | None = None
+    estado_invernadero_nombre: str | None = None
     model_config = ConfigDict(from_attributes=True)
-
 
 # === ATRAPANIEBLAS ===
 class AtrapanieblaBase(BaseModel):
@@ -58,7 +62,7 @@ class AtrapanieblaBase(BaseModel):
     tipo_malla: str | None = Field(None, max_length=50)
     orientacion: str | None = Field(None, max_length=30)
     estado_atrapaniebla_id: int
-    fecha_instalacion: date | None = None
+    fecha_instalacion: datetime | None = None
 
 class AtrapanieblaCreate(AtrapanieblaBase): pass
 
@@ -96,4 +100,17 @@ class FuenteAguaUpdate(FuenteAguaBase):
 class FuenteAguaResponse(FuenteAguaBase):
     id: int
     creado_en: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+# === RELACIÓN FUENTE DE AGUA - ATRAPANIEBLA ===
+class FuenteAguaAtrapanieblaBase(BaseModel):
+    fuente_agua_id: int
+    atrapaniebla_id: int
+
+class FuenteAguaAtrapanieblaCreate(FuenteAguaAtrapanieblaBase):
+    pass
+
+class FuenteAguaAtrapanieblaResponse(FuenteAguaAtrapanieblaBase):
+    id: int
     model_config = ConfigDict(from_attributes=True)

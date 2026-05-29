@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
 
@@ -9,7 +11,7 @@ from app.core.db import Base
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    ci: Mapped[str] = mapped_column(String(20), primary_key=True, index=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     username: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -28,6 +30,9 @@ class User(Base):
         index=True,
     )
 
+    rol: Mapped["Rol | None"] = relationship("Rol", lazy="selectin")
+    estado_usuario: Mapped["EstadoUsuario | None"] = relationship("EstadoUsuario", lazy="selectin")
+
     ultimo_acceso: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
@@ -43,11 +48,23 @@ class User(Base):
         onupdate=func.now(),
         nullable=False,
     )
-    # 2FA Authy (TOTP)
+
     totp_secret: Mapped[str | None] = mapped_column(String(32), nullable=True)
     is_totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    
-    # 2FA Correo
+
     is_email_2fa_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     email_code: Mapped[str | None] = mapped_column(String(6), nullable=True)
-    email_code_expires: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    email_code_expires: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    failed_login_attempts: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        nullable=False,
+    )
+    locked_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )

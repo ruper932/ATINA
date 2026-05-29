@@ -1,37 +1,35 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from jose import jwt
+
 import bcrypt
 import pyotp
+from jose import jwt
 
-SECRET_KEY = "super_secreto_super_seguro_cambiar_en_produccion"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 horas
+from app.core.config import settings
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    password_bytes = plain_password.encode("utf-8")
-    hash_bytes = hashed_password.encode("utf-8")
-    return bcrypt.checkpw(password_bytes, hash_bytes)
+    return bcrypt.checkpw(
+        plain_password.encode("utf-8"),
+        hashed_password.encode("utf-8"),
+    )
 
 
 def get_password_hash(password: str) -> str:
-    password_bytes = password.encode("utf-8")
     salt = bcrypt.gensalt()
-    hashed_password_bytes = bcrypt.hashpw(password_bytes, salt)
-    return hashed_password_bytes.decode("utf-8")
+    return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
 
 
 def create_access_token(
     subject: str | Any,
     is_partial: bool = False,
-    extra_claims: dict | None = None
+    extra_claims: dict | None = None,
 ) -> str:
     expire = datetime.now(timezone.utc) + timedelta(
-        minutes=15 if is_partial else ACCESS_TOKEN_EXPIRE_MINUTES
+        minutes=15 if is_partial else settings.ACCESS_TOKEN_EXPIRE_MINUTES
     )
 
-    to_encode = {
+    to_encode: dict[str, Any] = {
         "exp": expire,
         "sub": str(subject),
         "type": "partial" if is_partial else "access",
@@ -40,11 +38,11 @@ def create_access_token(
     if extra_claims:
         to_encode.update(extra_claims)
 
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
 def verify_token(token: str) -> dict:
-    return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
 
 
 def generate_totp_secret() -> str:

@@ -59,7 +59,6 @@ class Atrapaniebla(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     ubicacion_id: Mapped[int] = mapped_column(
         ForeignKey("ubicaciones.id", ondelete="RESTRICT"),
-        unique=True,
         nullable=False,
     )
     codigo: Mapped[str] = mapped_column(String(30), unique=True, nullable=False)

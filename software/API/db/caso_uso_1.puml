@@ -1,0 +1,33 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam linetype polyline
+
+skinparam usecase {
+  BackgroundColor LightBlue
+  BorderColor DarkBlue
+}
+
+actor "Administrador" as admin
+actor "Docente" as doc
+actor "Estudiante" as est
+
+package "Sistema: Seguridad y Administración" {
+  usecase "Iniciar Sesión\nen el Dashboard" as UC1
+  usecase "Validar Credenciales" as UC_Validar
+  usecase "Gestionar Usuarios\ny Accesos" as UC2
+  usecase "Configurar Nodos\nESP32" as UC3
+  usecase "Realizar Backup\nde Base de Datos" as UC4
+}
+
+admin --> UC1
+doc --> UC1
+est --> UC1
+
+admin --> UC2
+admin --> UC3
+admin --> UC4
+
+UC1 ..> UC_Validar : <<include>>
+@enduml

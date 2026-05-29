@@ -53,8 +53,9 @@ class ConfiguracionUmbral(Base):
         default=True,
         server_default=sa.true(),
     )
-    actualizado_por: Mapped[int | None] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL"),
+    actualizado_por_ci: Mapped[str | None] = mapped_column(
+        String(20),
+        ForeignKey("users.ci", ondelete="SET NULL"),
         nullable=True,
     )
     actualizado_en: Mapped[datetime] = mapped_column(

@@ -1,0 +1,21 @@
+@startuml
+skinparam shadowing false
+skinparam object {
+  BackgroundColor LightBlue
+  BorderColor DarkBlue
+}
+
+object ":SensorBME680" as sensor1
+object ":Caudalímetro" as sensor2
+object "nodoPrincipal:ESP32" as esp32
+object "servidorIntermedio:FastMCP" as mcp
+object "apiRest:FastAPI" as backend
+object "db:PostgreSQL" as bd
+
+sensor1 -right- esp32 : "1: leerTemperatura()\n2: leerPresion()"
+sensor2 -up- esp32 : "3: leerPulsos()"
+esp32 -right- mcp : "4: transmitirPayload(JSON)\n9: confirmarRecepcion(ACK)"
+mcp -down- backend : "5: enviarPostHttp()\n8: retornarStatus201()"
+backend -right- bd : "6: validarYGuardar(Lecturas)\n7: confirmarInsert()"
+
+@enduml

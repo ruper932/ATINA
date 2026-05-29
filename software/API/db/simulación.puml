@@ -1,0 +1,45 @@
+@startuml
+skinparam maxMessageSize 100
+skinparam shadowing false
+skinparam sequence {
+  LifeLineBackgroundColor LightGreen
+  ParticipantBackgroundColor White
+  ParticipantBorderColor DarkGreen
+}
+
+actor "Usuario\n(Docente)" as doc
+participant "Dashboard\n(React)" as front
+participant "Backend API\n(FastAPI)" as backend
+participant "Modelo ML3\n(Python/Scikit)" as ml
+database "Base de Datos\n(PostgreSQL)" as db
+
+doc -> front : Ingresa variables climáticas hipotéticas
+activate front
+front -> front : Validar inputs (Zod)
+front -> backend : POST /api/simulaciones (JSON)
+activate backend
+
+backend -> backend : Verificar JWT Token
+backend -> db : SELECT historico base
+activate db
+db --> backend : Datos de contexto hídrico
+deactivate db
+
+backend -> ml : invocar_modelo(parametros_usuario, contexto)
+activate ml
+ml -> ml : Ejecutar inferencia predictiva
+ml --> backend : Retorna proyección volumétrica
+deactivate ml
+
+backend -> db : INSERT simulaciones_ml (Guardar registro)
+activate db
+db --> backend : Confirmación
+deactivate db
+
+backend --> front : 200 OK (JSON proyecciones)
+deactivate backend
+
+front -> front : Renderizar gráficos (Recharts)
+front --> doc : Muestra resultados de la simulación en pantalla
+deactivate front
+@enduml

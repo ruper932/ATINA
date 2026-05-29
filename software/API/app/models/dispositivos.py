@@ -152,8 +152,9 @@ class CalibracionSensor(Base):
     valor_anterior: Mapped[float | None] = mapped_column(Numeric(14, 4), nullable=True)
     valor_nuevo: Mapped[float] = mapped_column(Numeric(14, 4), nullable=False)
     motivo: Mapped[str | None] = mapped_column(Text, nullable=True)
-    usuario_id: Mapped[int | None] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL"),
+    usuario_ci: Mapped[str | None] = mapped_column(
+        String(20),
+        ForeignKey("users.ci", ondelete="SET NULL"),
         nullable=True,
     )
     fecha_calibracion: Mapped[datetime] = mapped_column(

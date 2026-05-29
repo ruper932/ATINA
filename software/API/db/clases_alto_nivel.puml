@@ -1,0 +1,95 @@
+@startuml
+skinparam class {
+  BackgroundColor #FFFFDD
+  BorderColor #000000
+  ArrowColor #000000
+  FontName Arial
+  FontSize 12
+}
+skinparam shadowing false
+skinparam linetype ortho
+hide circle
+
+class Usuario {
+  + nombres: String
+  + rol: String
+  + iniciarSesion()
+}
+
+class Ubicacion {
+  + nombre: String
+  + latitud: Numeric
+  + longitud: Numeric
+}
+
+class Invernadero {
+  + codigo: String
+  + area_m2: Numeric
+  + prioridad_riego: Integer
+  + calcularDemandaAgua()
+}
+
+class Atrapaniebla {
+  + codigo: String
+  + area_malla_m2: Numeric
+  + tipo_malla: String
+  + registrarMantenimiento()
+}
+
+class FuenteAgua {
+  + codigo: String
+  + capacidad_l: Numeric
+  + volumen_disponible: Numeric
+  + actualizarVolumen()
+}
+
+class Dispositivo_IoT {
+  + codigo: String
+  + tipo: String
+  + ip_local: String
+  + transmitirDatosMCP()
+}
+
+class Sensor {
+  + variable_medida: String
+  + unidad_base: String
+  + capturarLectura()
+}
+
+class LecturaAmbiental {
+  + valor: Numeric
+  + fecha_hora: DateTime
+}
+
+class Prediccion_ML {
+  + tipo_modelo: String
+  + fecha_objetivo: Date
+  + volumen_predicho_l: Numeric
+  + calcularMargenError()
+}
+
+class DecisionRiego {
+  + modo_riego: String
+  + estado_valvula: String
+  + volumen_aplicado_l: Numeric
+  + ejecutarAccionEdge()
+}
+
+' Relaciones
+Usuario "1" -- "0..*" Prediccion_ML : Consulta >
+Usuario "1" -- "0..*" DecisionRiego : Configura >
+
+Ubicacion "1" -- "1" Invernadero : Alberga >
+Ubicacion "1" -- "1" Atrapaniebla : Alberga >
+
+Atrapaniebla "1..*" -- "1" FuenteAgua : Abastece >
+Invernadero "1" -- "1..*" DecisionRiego : Recibe >
+
+Dispositivo_IoT "1" *-- "1..*" Sensor : Contiene >
+Dispositivo_IoT "1" -- "1" Atrapaniebla : Monitorea >
+
+Sensor "1" *-- "0..*" LecturaAmbiental : Registra >
+LecturaAmbiental "0..*" -- "1" Prediccion_ML : Alimenta ML1 >
+
+DecisionRiego "0..*" -- "1" FuenteAgua : Extrae Agua de >
+@enduml

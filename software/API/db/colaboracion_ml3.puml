@@ -1,0 +1,19 @@
+@startuml
+skinparam shadowing false
+skinparam object {
+  BackgroundColor LightGreen
+  BorderColor DarkGreen
+}
+
+object ":Docente" as user
+object "interfaz:React" as front
+object "controladorSimulacion:FastAPI" as back
+object "historial:PostgreSQL" as bd
+object "motorInferencia:ML3_Scikit" as ml
+
+user -right- front : "1: ingresarVariables()\n8: visualizarGraficas()"
+front -down- back : "2: POST /api/simulaciones\n7: HTTP 200 (Resultados)"
+back -left- bd : "3: obtenerContextoBase()\n6: registrarSimulacion()"
+back -right- ml : "4: ejecutarInferencia(parametros)\n5: retornarProyeccionVolumetrica()"
+
+@enduml

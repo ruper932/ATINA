@@ -1,0 +1,34 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam linetype polyline
+
+skinparam usecase {
+  BackgroundColor LightGreen
+  BorderColor DarkGreen
+}
+
+actor "Docente" as doc
+actor "Estudiante" as est
+actor "Microcontrolador\n(ESP32)" as esp32 <<Sistema>>
+
+package "Sistema: Monitoreo y Reportes" {
+  usecase "Transmitir Datos Ambientales\ny Caudal" as UC1
+  usecase "Validar Formato MCP" as UC_Format
+  usecase "Visualizar Dashboard\nen Tiempo Real" as UC2
+  usecase "Consultar Gráficos\nComparativos" as UC3
+  usecase "Exportar Reportes\nHistóricos" as UC4
+  usecase "Aplicar Filtros\nde Fecha" as UC_Filtro
+}
+
+esp32 --> UC1 : Vía MCP
+doc --> UC2
+est --> UC2
+doc --> UC3
+doc --> UC4
+
+UC1 ..> UC_Format : <<include>>
+UC4 ..> UC_Filtro : <<extend>>
+UC3 ..> UC_Filtro : <<extend>>
+@enduml

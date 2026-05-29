@@ -12,10 +12,15 @@ from app.schemas.infraestructura import (
     UbicacionCreate, UbicacionUpdate, UbicacionResponse,
     InvernaderoCreate, InvernaderoUpdate, InvernaderoResponse,
     AtrapanieblaCreate, AtrapanieblaUpdate, AtrapanieblaResponse,
-    FuenteAguaCreate, FuenteAguaUpdate, FuenteAguaResponse
+    FuenteAguaCreate,
+    FuenteAguaUpdate,
+    FuenteAguaResponse,
+    FuenteAguaAtrapanieblaCreate,
+    FuenteAguaAtrapanieblaResponse,
 )
 
 router = APIRouter()
+
 
 # ==========================================
 # CATÁLOGOS NECESARIOS PARA INFRAESTRUCTURA
@@ -28,8 +33,7 @@ async def get_tipos_ubicacion(
 ):
     result = await db.execute(text("SELECT id, nombre, descripcion FROM tipos_ubicacion"))
     rows = result.fetchall()
-    
-    # Creamos diccionarios manuales garantizando los nombres de las llaves
+
     data = []
     for row in rows:
         data.append({
@@ -37,10 +41,29 @@ async def get_tipos_ubicacion(
             "nombre": getattr(row, "nombre", row[1]),
             "descripcion": getattr(row, "descripcion", row[2])
         })
-    
-    # Este print te mostrará en la consola de tu backend qué se está enviando exactamente
+
     print(f"Enviando tipos_ubicacion a {current_user.email}: {data}")
     return data
+
+
+@router.get("/catalogos/estados-invernadero")
+async def get_estados_invernadero(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(text("SELECT id, nombre, descripcion FROM estados_invernadero"))
+    rows = result.fetchall()
+
+    data = []
+    for row in rows:
+        data.append({
+            "id": getattr(row, "id", row[0]),
+            "nombre": getattr(row, "nombre", row[1]),
+            "descripcion": getattr(row, "descripcion", row[2]),
+        })
+
+    return data
+
 
 @router.get("/catalogos/estados-atrapaniebla")
 async def get_estados_atrapaniebla(
@@ -49,7 +72,7 @@ async def get_estados_atrapaniebla(
 ):
     result = await db.execute(text("SELECT id, nombre, descripcion FROM estados_atrapaniebla"))
     rows = result.fetchall()
-    
+
     data = []
     for row in rows:
         data.append({
@@ -57,8 +80,9 @@ async def get_estados_atrapaniebla(
             "nombre": getattr(row, "nombre", row[1]),
             "descripcion": getattr(row, "descripcion", row[2])
         })
-    
+
     return data
+
 
 @router.get("/catalogos/tipos-fuente-agua")
 async def get_tipos_fuente_agua(
@@ -67,7 +91,7 @@ async def get_tipos_fuente_agua(
 ):
     result = await db.execute(text("SELECT id, nombre, descripcion FROM tipos_fuente_agua"))
     rows = result.fetchall()
-    
+
     data = []
     for row in rows:
         data.append({
@@ -75,8 +99,9 @@ async def get_tipos_fuente_agua(
             "nombre": getattr(row, "nombre", row[1]),
             "descripcion": getattr(row, "descripcion", row[2])
         })
-    
+
     return data
+
 
 @router.get("/catalogos/estados-fuente-agua")
 async def get_estados_fuente_agua(
@@ -85,7 +110,7 @@ async def get_estados_fuente_agua(
 ):
     result = await db.execute(text("SELECT id, nombre, descripcion FROM estados_fuente_agua"))
     rows = result.fetchall()
-    
+
     data = []
     for row in rows:
         data.append({
@@ -93,8 +118,9 @@ async def get_estados_fuente_agua(
             "nombre": getattr(row, "nombre", row[1]),
             "descripcion": getattr(row, "descripcion", row[2])
         })
-    
+
     return data
+
 
 # ==========================================
 # UBICACIONES
@@ -164,7 +190,32 @@ async def create_invernadero(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await crud.invernadero.create(db=db, obj_in=obj_in)
+    created = await crud.invernadero.create(db=db, obj_in=obj_in)
+
+    result = await db.execute(
+        text("""
+            SELECT
+                i.id,
+                i.ubicacion_id,
+                u.nombre AS ubicacion_nombre,
+                i.codigo,
+                i.nombre,
+                i.descripcion,
+                i.area_m2,
+                i.prioridad_riego,
+                i.estado_invernadero_id,
+                ei.nombre AS estado_invernadero_nombre,
+                i.creado_en
+            FROM invernaderos i
+            INNER JOIN ubicaciones u ON u.id = i.ubicacion_id
+            INNER JOIN estados_invernadero ei ON ei.id = i.estado_invernadero_id
+            WHERE i.id = :id
+        """),
+        {"id": created.id},
+    )
+
+    row = result.mappings().first()
+    return dict(row)
 
 
 @router.get("/invernaderos", response_model=list[InvernaderoResponse])
@@ -174,7 +225,32 @@ async def read_invernaderos(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await crud.invernadero.get_multi(db=db, skip=skip, limit=limit)
+    result = await db.execute(
+        text("""
+            SELECT
+                i.id,
+                i.ubicacion_id,
+                u.nombre AS ubicacion_nombre,
+                i.codigo,
+                i.nombre,
+                i.descripcion,
+                i.area_m2,
+                i.prioridad_riego,
+                i.estado_invernadero_id,
+                ei.nombre AS estado_invernadero_nombre,
+                i.creado_en
+            FROM invernaderos i
+            INNER JOIN ubicaciones u ON u.id = i.ubicacion_id
+            INNER JOIN estados_invernadero ei ON ei.id = i.estado_invernadero_id
+            ORDER BY i.id
+            OFFSET :skip
+            LIMIT :limit
+        """),
+        {"skip": skip, "limit": limit},
+    )
+
+    rows = result.mappings().all()
+    return [dict(row) for row in rows]
 
 
 @router.get("/invernaderos/{id}", response_model=InvernaderoResponse)
@@ -183,10 +259,32 @@ async def read_invernadero(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    obj = await crud.invernadero.get(db=db, id=id)
-    if not obj:
+    result = await db.execute(
+        text("""
+            SELECT
+                i.id,
+                i.ubicacion_id,
+                u.nombre AS ubicacion_nombre,
+                i.codigo,
+                i.nombre,
+                i.descripcion,
+                i.area_m2,
+                i.prioridad_riego,
+                i.estado_invernadero_id,
+                ei.nombre AS estado_invernadero_nombre,
+                i.creado_en
+            FROM invernaderos i
+            INNER JOIN ubicaciones u ON u.id = i.ubicacion_id
+            INNER JOIN estados_invernadero ei ON ei.id = i.estado_invernadero_id
+            WHERE i.id = :id
+        """),
+        {"id": id},
+    )
+
+    row = result.mappings().first()
+    if not row:
         raise HTTPException(status_code=404, detail="Invernadero no encontrado")
-    return obj
+    return dict(row)
 
 
 @router.put("/invernaderos/{id}", response_model=InvernaderoResponse)
@@ -199,7 +297,33 @@ async def update_invernadero(
     obj = await crud.invernadero.get(db=db, id=id)
     if not obj:
         raise HTTPException(status_code=404, detail="Invernadero no encontrado")
-    return await crud.invernadero.update(db=db, db_obj=obj, obj_in=obj_in)
+
+    await crud.invernadero.update(db=db, db_obj=obj, obj_in=obj_in)
+
+    result = await db.execute(
+        text("""
+            SELECT
+                i.id,
+                i.ubicacion_id,
+                u.nombre AS ubicacion_nombre,
+                i.codigo,
+                i.nombre,
+                i.descripcion,
+                i.area_m2,
+                i.prioridad_riego,
+                i.estado_invernadero_id,
+                ei.nombre AS estado_invernadero_nombre,
+                i.creado_en
+            FROM invernaderos i
+            INNER JOIN ubicaciones u ON u.id = i.ubicacion_id
+            INNER JOIN estados_invernadero ei ON ei.id = i.estado_invernadero_id
+            WHERE i.id = :id
+        """),
+        {"id": id},
+    )
+
+    row = result.mappings().first()
+    return dict(row)
 
 
 @router.delete("/invernaderos/{id}", response_model=InvernaderoResponse)
@@ -208,10 +332,34 @@ async def delete_invernadero(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    obj = await crud.invernadero.remove(db=db, id=id)
-    if not obj:
+    result = await db.execute(
+        text("""
+            SELECT
+                i.id,
+                i.ubicacion_id,
+                u.nombre AS ubicacion_nombre,
+                i.codigo,
+                i.nombre,
+                i.descripcion,
+                i.area_m2,
+                i.prioridad_riego,
+                i.estado_invernadero_id,
+                ei.nombre AS estado_invernadero_nombre,
+                i.creado_en
+            FROM invernaderos i
+            INNER JOIN ubicaciones u ON u.id = i.ubicacion_id
+            INNER JOIN estados_invernadero ei ON ei.id = i.estado_invernadero_id
+            WHERE i.id = :id
+        """),
+        {"id": id},
+    )
+
+    row = result.mappings().first()
+    if not row:
         raise HTTPException(status_code=404, detail="Invernadero no encontrado")
-    return obj
+
+    await crud.invernadero.remove(db=db, id=id)
+    return dict(row)
 
 
 # ==========================================
@@ -273,60 +421,74 @@ async def delete_atrapaniebla(
     return obj
 
 
-# ==========================================
-# FUENTES DE AGUA
-# ==========================================
-@router.post("/fuentes-agua", response_model=FuenteAguaResponse, status_code=status.HTTP_201_CREATED)
-async def create_fuente_agua(
-    obj_in: FuenteAguaCreate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return await crud.fuente_agua.create(db=db, obj_in=obj_in)
-
-
+# ===== FUENTES DE AGUA =====
 @router.get("/fuentes-agua", response_model=list[FuenteAguaResponse])
-async def read_fuentes_agua(
-    skip: int = 0,
-    limit: int = 100,
+async def listar_fuentes_agua(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await crud.fuente_agua.get_multi(db=db, skip=skip, limit=limit)
+    return await crud.get_fuentes_agua(db)
 
 
-@router.get("/fuentes-agua/{id}", response_model=FuenteAguaResponse)
-async def read_fuente_agua(
-    id: int,
+@router.get("/fuentes-agua/{fuente_id}", response_model=FuenteAguaResponse)
+async def obtener_fuente_agua(
+    fuente_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    obj = await crud.fuente_agua.get(db=db, id=id)
-    if not obj:
-        raise HTTPException(status_code=404, detail="Fuente de agua no encontrada")
-    return obj
+    return await crud.get_fuente_agua(db, fuente_id)
 
 
-@router.put("/fuentes-agua/{id}", response_model=FuenteAguaResponse)
-async def update_fuente_agua(
-    id: int,
-    obj_in: FuenteAguaUpdate,
+@router.post("/fuentes-agua", response_model=FuenteAguaResponse, status_code=status.HTTP_201_CREATED)
+async def crear_fuente_agua(
+    fuente_in: FuenteAguaCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    obj = await crud.fuente_agua.get(db=db, id=id)
-    if not obj:
-        raise HTTPException(status_code=404, detail="Fuente de agua no encontrada")
-    return await crud.fuente_agua.update(db=db, db_obj=obj, obj_in=obj_in)
+    return await crud.create_fuente_agua(db, fuente_in)
 
 
-@router.delete("/fuentes-agua/{id}", response_model=FuenteAguaResponse)
-async def delete_fuente_agua(
-    id: int,
+@router.put("/fuentes-agua/{fuente_id}", response_model=FuenteAguaResponse)
+async def actualizar_fuente_agua(
+    fuente_id: int,
+    fuente_in: FuenteAguaUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    obj = await crud.fuente_agua.remove(db=db, id=id)
-    if not obj:
-        raise HTTPException(status_code=404, detail="Fuente de agua no encontrada")
-    return obj
+    return await crud.update_fuente_agua(db, fuente_id, fuente_in)
+
+
+@router.delete("/fuentes-agua/{fuente_id}")
+async def eliminar_fuente_agua(
+    fuente_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await crud.delete_fuente_agua(db, fuente_id)
+
+
+# ===== RELACIÓN FUENTE-ATRAPANIEBLA =====
+@router.get("/fuentes-agua-atrapanieblas", response_model=list[FuenteAguaAtrapanieblaResponse])
+async def listar_relaciones_fuente_atrapaniebla(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await crud.get_relaciones_fuente_atrapaniebla(db)
+
+
+@router.post("/fuentes-agua-atrapanieblas", response_model=FuenteAguaAtrapanieblaResponse, status_code=status.HTTP_201_CREATED)
+async def crear_relacion_fuente_atrapaniebla(
+    relacion_in: FuenteAguaAtrapanieblaCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await crud.create_relacion_fuente_atrapaniebla(db, relacion_in)
+
+
+@router.delete("/fuentes-agua-atrapanieblas/{relacion_id}")
+async def eliminar_relacion_fuente_atrapaniebla(
+    relacion_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await crud.delete_relacion_fuente_atrapaniebla(db, relacion_id)

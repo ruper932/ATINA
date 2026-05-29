@@ -16,4 +16,5 @@ export type DispositivoResponse = DispositivoBase & {
   id: number
   ultima_conexion?: string | null
   creado_en: string
+  estado_dispositivo_nombre?: string
 }

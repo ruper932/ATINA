@@ -11,8 +11,9 @@ class AuditAction(Base):
     __tablename__ = "auditoria_acciones"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    usuario_id: Mapped[int | None] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL"),
+    usuario_ci: Mapped[str | None] = mapped_column(
+        String(20),
+        ForeignKey("users.ci", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )

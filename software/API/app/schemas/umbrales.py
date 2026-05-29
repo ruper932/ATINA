@@ -1,7 +1,7 @@
-# app/schemas/umbrales.py
 from datetime import datetime
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
+
 
 # === PARÁMETROS DE UMBRAL ===
 class ParametroUmbralBase(BaseModel):
@@ -9,10 +9,14 @@ class ParametroUmbralBase(BaseModel):
     descripcion: str | None = None
     unidad: str | None = Field(None, max_length=30)
 
-class ParametroUmbralCreate(ParametroUmbralBase): pass
+
+class ParametroUmbralCreate(ParametroUmbralBase):
+    pass
+
 
 class ParametroUmbralUpdate(ParametroUmbralBase):
     nombre: str | None = None
+
 
 class ParametroUmbralResponse(ParametroUmbralBase):
     id: int
@@ -25,14 +29,18 @@ class ConfiguracionUmbralBase(BaseModel):
     valor: Decimal = Field(..., max_digits=14, decimal_places=4)
     ambito_umbral_id: int
     editable: bool = True
-    actualizado_por: int | None = None
+    actualizado_por_ci: str | None = None
 
-class ConfiguracionUmbralCreate(ConfiguracionUmbralBase): pass
+
+class ConfiguracionUmbralCreate(ConfiguracionUmbralBase):
+    pass
+
 
 class ConfiguracionUmbralUpdate(BaseModel):
     valor: Decimal | None = None
     editable: bool | None = None
-    actualizado_por: int | None = None
+    actualizado_por_ci: str | None = None
+
 
 class ConfiguracionUmbralResponse(ConfiguracionUmbralBase):
     id: int

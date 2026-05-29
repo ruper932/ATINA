@@ -1,7 +1,7 @@
-# app/schemas/dispositivos.py
 from datetime import date, datetime
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field, IPvAnyAddress
+
 
 # === DISPOSITIVOS ===
 class DispositivoBase(BaseModel):
@@ -13,7 +13,10 @@ class DispositivoBase(BaseModel):
     version_firmware: str | None = Field(None, max_length=50)
     estado_dispositivo_id: int
 
-class DispositivoCreate(DispositivoBase): pass
+
+class DispositivoCreate(DispositivoBase):
+    pass
+
 
 class DispositivoUpdate(DispositivoBase):
     tipo_dispositivo_id: int | None = None
@@ -21,15 +24,14 @@ class DispositivoUpdate(DispositivoBase):
     nombre: str | None = None
     estado_dispositivo_id: int | None = None
 
+
 class DispositivoResponse(DispositivoBase):
     id: int
+    tipo_dispositivo_nombre: str | None = None
+    estado_dispositivo_nombre: str | None = None
     ultima_conexion: datetime | None = None
     creado_en: datetime
-    # Convertimos IPvAnyAddress a str para la serialización final
-    ip_local: str | None = None 
-
     model_config = ConfigDict(from_attributes=True)
-
 
 # === SENSORES ===
 class SensorBase(BaseModel):
@@ -43,7 +45,10 @@ class SensorBase(BaseModel):
     estado_sensor_id: int
     fecha_instalacion: date | None = None
 
-class SensorCreate(SensorBase): pass
+
+class SensorCreate(SensorBase):
+    pass
+
 
 class SensorUpdate(SensorBase):
     dispositivo_id: int | None = None
@@ -52,8 +57,12 @@ class SensorUpdate(SensorBase):
     nombre: str | None = None
     estado_sensor_id: int | None = None
 
+
 class SensorResponse(SensorBase):
     id: int
+    dispositivo_nombre: str | None = None
+    tipo_sensor_nombre: str | None = None
+    estado_sensor_nombre: str | None = None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -65,7 +74,10 @@ class LecturaSensorBase(BaseModel):
     timestamp_lectura: datetime
     metadatos_json: dict | None = None
 
-class LecturaSensorCreate(LecturaSensorBase): pass
+
+class LecturaSensorCreate(LecturaSensorBase):
+    pass
+
 
 class LecturaSensorResponse(LecturaSensorBase):
     id: int
@@ -82,7 +94,10 @@ class ActuadorBase(BaseModel):
     estado_actuador_id: int
     fecha_instalacion: date | None = None
 
-class ActuadorCreate(ActuadorBase): pass
+
+class ActuadorCreate(ActuadorBase):
+    pass
+
 
 class ActuadorUpdate(ActuadorBase):
     dispositivo_id: int | None = None
@@ -91,6 +106,10 @@ class ActuadorUpdate(ActuadorBase):
     nombre: str | None = None
     estado_actuador_id: int | None = None
 
+
 class ActuadorResponse(ActuadorBase):
     id: int
+    dispositivo_nombre: str | None = None
+    tipo_actuador_nombre: str | None = None
+    estado_actuador_nombre: str | None = None
     model_config = ConfigDict(from_attributes=True)

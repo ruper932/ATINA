@@ -3,11 +3,29 @@ import time
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
 
+from app.api.routes import (
+    alertas,
+    auth,
+    dispositivos,
+    health,
+    infraestructura,
+    invernaderos,
+    ml,
+    reportes,
+    riego,
+    umbrales,
+    usuarios,
+    solicitudes,
+)
 from app.core.config import settings
 
-from app.api.routes import health, invernaderos, infraestructura, auth, dispositivos, riego, usuarios, alertas, umbrales, ml, reportes
 
+limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -16,6 +34,10 @@ app = FastAPI(
     redoc_url="/redoc",
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
@@ -27,6 +49,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
     start_time = time.perf_counter()
@@ -35,14 +58,13 @@ async def add_process_time_header(request: Request, call_next):
     response.headers["X-Process-Time"] = str(process_time)
     return response
 
-# RUTAS EXISTENTES
+
 app.include_router(
     health.router,
     prefix=f"{settings.API_V1_STR}/health",
     tags=["Health"],
 )
 
-# NUEVAS RUTAS
 app.include_router(
     invernaderos.router,
     prefix=f"{settings.API_V1_STR}/invernaderos",
@@ -60,21 +82,25 @@ app.include_router(
     prefix=f"{settings.API_V1_STR}/auth",
     tags=["Autenticación y Seguridad"],
 )
+
 app.include_router(
     dispositivos.router,
     prefix=f"{settings.API_V1_STR}/iot",
     tags=["IoT y Dispositivos"],
 )
+
 app.include_router(
     riego.router,
     prefix=f"{settings.API_V1_STR}/riego",
     tags=["Gestión de Riego"],
 )
+
 app.include_router(
     usuarios.router,
     prefix=f"{settings.API_V1_STR}/admin",
     tags=["Administración de Usuarios"],
 )
+
 app.include_router(
     alertas.router,
     prefix=f"{settings.API_V1_STR}/alertas",
@@ -86,6 +112,7 @@ app.include_router(
     prefix=f"{settings.API_V1_STR}/umbrales",
     tags=["Configuración de Umbrales"],
 )
+
 app.include_router(
     ml.router,
     prefix=f"{settings.API_V1_STR}/ml",
@@ -97,6 +124,15 @@ app.include_router(
     prefix=f"{settings.API_V1_STR}/reportes",
     tags=["Reportes y Sincronización"],
 )
+
+app.include_router(
+    solicitudes.router,
+    prefix=f"{settings.API_V1_STR}/solicitudes",
+    tags=["Solicitudes para ubicaciones."],
+)
+
+
+
 @app.get("/", tags=["Root"])
 async def root():
     return {
@@ -104,5 +140,3 @@ async def root():
         "docs": "/docs",
         "openapi": f"{settings.API_V1_STR}/openapi.json",
     }
-
-

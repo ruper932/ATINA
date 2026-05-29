@@ -9,10 +9,12 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
+
 revision: str = '9c8c01137e30'
 down_revision: Union[str, Sequence[str], None] = 'faa03476ee88'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
+
 
 def upgrade() -> None:
     op.create_table('estados_alerta',
@@ -59,12 +61,14 @@ def upgrade() -> None:
     sa.Column('estado_alerta_id', sa.Integer(), nullable=False),
     sa.Column('fecha_generacion', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('fecha_reconocimiento', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('usuario_reconoce_id', sa.Integer(), nullable=True),
+    # CAMBIO: usuario_reconoce_id (Integer) a usuario_reconoce_ci (String)
+    sa.Column('usuario_reconoce_ci', sa.String(length=20), nullable=True),
     sa.CheckConstraint('fecha_reconocimiento IS NULL OR fecha_reconocimiento >= fecha_generacion', name='chk_alertas_reconocimiento'),
     sa.ForeignKeyConstraint(['estado_alerta_id'], ['estados_alerta.id'], ondelete='RESTRICT'),
     sa.ForeignKeyConstraint(['origen_alerta_id'], ['origenes_alerta.id'], ondelete='RESTRICT'),
     sa.ForeignKeyConstraint(['severidad_alerta_id'], ['severidades_alerta.id'], ondelete='RESTRICT'),
-    sa.ForeignKeyConstraint(['usuario_reconoce_id'], ['users.id'], ondelete='SET NULL'),
+    # CAMBIO: Apunta a users.ci en lugar de users.id
+    sa.ForeignKeyConstraint(['usuario_reconoce_ci'], ['users.ci'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index('idx_alertas_estado_alerta_id', 'alertas', ['estado_alerta_id'], unique=False)
@@ -128,6 +132,7 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('alerta_id', 'simulacion_ml_id', name='uq_alertas_simulaciones_ml')
     )
+
 
 def downgrade() -> None:
     op.drop_index('idx_alertas_fecha_generacion', table_name='alertas')
