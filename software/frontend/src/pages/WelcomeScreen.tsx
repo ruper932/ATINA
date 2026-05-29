@@ -163,7 +163,7 @@ export default function WelcomeScreen() {
             © 2026 Proyecto Integrador Intermedio I - UNIFRANZ
           </p>
           <p className="flex items-center gap-1 text-xs text-muted-foreground">
-            Desarrollado por Limber Ignacio Romero Urrelo
+            Versión 1.2.18
             <Leaf className="h-3 w-3 text-emerald-500" />
           </p>
         </div>

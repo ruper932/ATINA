@@ -80,7 +80,7 @@ export function DashboardSidebar({
                           className={[
                             'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all duration-200',
                             isActive
-                              ? 'text-emerald-500' // Ícono verde cuando está activo
+                              ? 'text-emerald-500'
                               : 'text-muted-foreground group-hover:text-foreground',
                           ].join(' ')}
                         >
@@ -91,7 +91,7 @@ export function DashboardSidebar({
                           className={[
                             'overflow-hidden whitespace-nowrap transition-all duration-200',
                             open ? 'w-auto opacity-100' : 'w-0 opacity-0',
-                            isActive ? 'text-emerald-500 drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]' : '', // Brillo verde en el texto
+                            isActive ? 'text-emerald-500 drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]' : '',
                           ].join(' ')}
                         >
                           {item.title}
@@ -102,6 +102,25 @@ export function DashboardSidebar({
                 )
               })}
             </nav>
+          </div>
+
+          {/* Versión del sistema - añadida al final */}
+          <div className="border-t border-border/70 px-3 py-4">
+            <div
+              className={[
+                'flex items-center transition-all duration-200',
+                open ? 'justify-start gap-2 px-1' : 'justify-center',
+              ].join(' ')}
+            >
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-emerald-600/10 text-[10px] font-semibold text-emerald-600">
+                v
+              </div>
+              {open && (
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  Versión 1.2.18
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </aside>
