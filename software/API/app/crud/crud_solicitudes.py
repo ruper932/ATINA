@@ -29,11 +29,20 @@ class CRUDSolicitudes:
         return datetime.now(timezone.utc)
 
     @staticmethod
-    def _get_user_role_name(user: User) -> str | None:
+    def get_user_role_name(user: User) -> str | None:
+        """Obtiene el nombre del rol del usuario (método público)"""
         rol = getattr(user, "rol", None)
         if rol and getattr(rol, "nombre", None):
             return rol.nombre.lower()
+        # Si rol es string directamente
+        if rol and isinstance(rol, str):
+            return rol.lower()
         return None
+
+    @staticmethod
+    def _get_user_role_name(user: User) -> str | None:
+        """Método privado interno"""
+        return CRUDSolicitudes.get_user_role_name(user)
 
     @staticmethod
     def _require_roles(user: User, allowed: set[str]) -> None:
@@ -149,7 +158,11 @@ class CRUDSolicitudes:
         return solicitud
 
     @staticmethod
-    async def get(db: AsyncSession, solicitud_id: int) -> SolicitudMovimiento:
+    async def get(
+        db: AsyncSession, 
+        solicitud_id: int, 
+        current_user: User | None = None
+    ) -> SolicitudMovimiento:
         stmt = (
             select(SolicitudMovimiento)
             .options(selectinload(SolicitudMovimiento.historial))
@@ -163,6 +176,15 @@ class CRUDSolicitudes:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Solicitud no encontrada",
             )
+        
+        # Validar permisos para docentes
+        if current_user and CRUDSolicitudes._get_user_role_name(current_user) == "docente":
+            if solicitud.solicitante_ci != current_user.ci:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No tienes permiso para ver esta solicitud",
+                )
+        
         return solicitud
 
     @staticmethod
@@ -174,6 +196,7 @@ class CRUDSolicitudes:
         revisor_ci: str | None = None,
         skip: int = 0,
         limit: int = 100,
+        current_user: User | None = None,
     ) -> list[SolicitudMovimiento]:
         stmt = (
             select(SolicitudMovimiento)
@@ -181,12 +204,18 @@ class CRUDSolicitudes:
             .order_by(SolicitudMovimiento.id.desc())
         )
 
-        if estado:
-            stmt = stmt.where(SolicitudMovimiento.estado == estado)
-        if solicitante_ci:
-            stmt = stmt.where(SolicitudMovimiento.solicitante_ci == solicitante_ci)
-        if revisor_ci:
-            stmt = stmt.where(SolicitudMovimiento.revisor_ci == revisor_ci)
+        # Si es docente, forzar filtro por su CI
+        if current_user and CRUDSolicitudes._get_user_role_name(current_user) == "docente":
+            # Los docentes solo ven sus propias solicitudes
+            stmt = stmt.where(SolicitudMovimiento.solicitante_ci == current_user.ci)
+        else:
+            # Para admin/tecnico, aplicar los filtros normales
+            if estado:
+                stmt = stmt.where(SolicitudMovimiento.estado == estado)
+            if solicitante_ci:
+                stmt = stmt.where(SolicitudMovimiento.solicitante_ci == solicitante_ci)
+            if revisor_ci:
+                stmt = stmt.where(SolicitudMovimiento.revisor_ci == revisor_ci)
 
         stmt = stmt.offset(skip).limit(limit)
 
@@ -203,7 +232,7 @@ class CRUDSolicitudes:
     ) -> SolicitudMovimiento:
         CRUDSolicitudes._require_roles(current_user, {"admin", "tecnico"})
 
-        solicitud = await CRUDSolicitudes.get(db, solicitud_id)
+        solicitud = await CRUDSolicitudes.get(db, solicitud_id, current_user=current_user)
 
         if solicitud.estado != EstadoSolicitud.pendiente:
             raise HTTPException(
@@ -228,7 +257,7 @@ class CRUDSolicitudes:
 
         await db.commit()
         await db.refresh(solicitud)
-        return await CRUDSolicitudes.get(db, solicitud.id)
+        return await CRUDSolicitudes.get(db, solicitud.id, current_user=current_user)
 
     @staticmethod
     async def _aplicar_ubicacion(
@@ -257,7 +286,7 @@ class CRUDSolicitudes:
     ) -> SolicitudMovimiento:
         CRUDSolicitudes._require_roles(current_user, {"admin", "tecnico"})
 
-        solicitud = await CRUDSolicitudes.get(db, solicitud_id)
+        solicitud = await CRUDSolicitudes.get(db, solicitud_id, current_user=current_user)
 
         if solicitud.estado != EstadoSolicitud.en_revision:
             raise HTTPException(
@@ -313,7 +342,7 @@ class CRUDSolicitudes:
 
         await db.commit()
         await db.refresh(solicitud)
-        return await CRUDSolicitudes.get(db, solicitud.id)
+        return await CRUDSolicitudes.get(db, solicitud.id, current_user=current_user)
 
     @staticmethod
     async def cancelar(
@@ -325,7 +354,7 @@ class CRUDSolicitudes:
     ) -> SolicitudMovimiento:
         CRUDSolicitudes._require_roles(current_user, {"docente"})
 
-        solicitud = await CRUDSolicitudes.get(db, solicitud_id)
+        solicitud = await CRUDSolicitudes.get(db, solicitud_id, current_user=current_user)
 
         if solicitud.solicitante_ci != current_user.ci:
             raise HTTPException(
@@ -355,7 +384,7 @@ class CRUDSolicitudes:
 
         await db.commit()
         await db.refresh(solicitud)
-        return await CRUDSolicitudes.get(db, solicitud.id)
+        return await CRUDSolicitudes.get(db, solicitud.id, current_user=current_user)
 
 
 crud_solicitudes = CRUDSolicitudes()

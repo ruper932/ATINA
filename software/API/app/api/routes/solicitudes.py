@@ -48,6 +48,10 @@ async def listar_solicitudes(
             estado_enum = EstadoSolicitud(estado)
         except ValueError:
             raise HTTPException(status_code=422, detail=f"Estado inválido: {estado}")
+    
+    if current_user.rol == "DOCENTE":
+        solicitante_ci = current_user.ci  
+        revisor_ci = None
 
     rows = await crud_solicitudes.list(
         db,
@@ -56,6 +60,7 @@ async def listar_solicitudes(
         revisor_ci=revisor_ci,
         skip=skip,
         limit=limit,
+        current_user=current_user,
     )
 
     return [

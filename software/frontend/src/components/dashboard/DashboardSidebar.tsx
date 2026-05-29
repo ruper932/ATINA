@@ -2,13 +2,11 @@ import { NavLink } from 'react-router-dom'
 import { dashboardNavItems } from '@/config/navigation'
 import { useAuth } from '@/hooks/useAuth'
 
-
 type DashboardSidebarProps = {
   open: boolean
   onOpen: () => void
   onClose: () => void
 }
-
 
 export function DashboardSidebar({
   open,
@@ -17,11 +15,9 @@ export function DashboardSidebar({
 }: DashboardSidebarProps) {
   const { role } = useAuth()
 
-
   const visibleItems = dashboardNavItems.filter((item) =>
     role ? item.allowedRoles.includes(role) : false
   )
-
 
   return (
     <div
@@ -55,13 +51,11 @@ export function DashboardSidebar({
           )}
         </div>
 
-
         <div className="flex h-[calc(100vh-4rem)] flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto px-3 py-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             <nav className="space-y-1.5">
               {visibleItems.map((item) => {
                 const Icon = item.icon
-
 
                 return (
                   <NavLink
@@ -72,11 +66,11 @@ export function DashboardSidebar({
                     title={item.title}
                     className={({ isActive }) =>
                       [
-                        'group flex items-center rounded-2xl text-sm font-medium transition-all',
-                        open ? 'justify-start gap-3 px-3 py-3' : 'justify-center px-0 py-3',
+                        'group flex items-center rounded-xl text-sm font-medium transition-all duration-200',
+                        open ? 'justify-start gap-3 px-3 py-2.5' : 'justify-center px-0 py-2.5',
                         isActive
-                          ? 'bg-emerald-600 text-white'
-                          : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                          ? 'text-emerald-500'
+                          : 'text-muted-foreground hover:text-foreground',
                       ].join(' ')
                     }
                   >
@@ -84,20 +78,20 @@ export function DashboardSidebar({
                       <>
                         <div
                           className={[
-                            'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-colors',
+                            'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all duration-200',
                             isActive
-                              ? 'border-white/20 bg-white/10 text-white'
-                              : 'border-border/70 bg-background text-muted-foreground group-hover:text-foreground',
+                              ? 'text-emerald-500' // Ícono verde cuando está activo
+                              : 'text-muted-foreground group-hover:text-foreground',
                           ].join(' ')}
                         >
-                          <Icon className="h-4 w-4" />
+                          <Icon className="h-5 w-5" />
                         </div>
-
 
                         <span
                           className={[
                             'overflow-hidden whitespace-nowrap transition-all duration-200',
                             open ? 'w-auto opacity-100' : 'w-0 opacity-0',
+                            isActive ? 'text-emerald-500 drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]' : '', // Brillo verde en el texto
                           ].join(' ')}
                         >
                           {item.title}
