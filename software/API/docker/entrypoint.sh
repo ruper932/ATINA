@@ -1,14 +1,10 @@
 #!/bin/sh
+
+# Detener el script si ocurre algún error
 set -e
 
-echo "Aplicando migraciones..."
+echo "==> Aplicando migraciones de base de datos con Alembic..."
 alembic upgrade head
 
-echo "Iniciando FastAPI en producción..."
-exec gunicorn app.main:app \
-  --worker-class uvicorn.workers.UvicornWorker \
-  --workers 4 \
-  --bind 0.0.0.0:8000 \
-  --timeout 120 \
-  --access-logfile - \
-  --error-logfile -
+echo "==> Iniciando servidor de producción FastAPI con Uvicorn..."
+exec uvicorn app.main:app --host 0.0.0.0 --port 8000

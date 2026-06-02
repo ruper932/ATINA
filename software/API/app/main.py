@@ -21,6 +21,7 @@ from app.api.routes import (
     umbrales,
     usuarios,
     solicitudes,
+    tickets_mantenimiento,
 )
 from app.core.config import settings
 
@@ -131,6 +132,11 @@ app.include_router(
     tags=["Solicitudes para ubicaciones."],
 )
 
+app.include_router(
+    tickets_mantenimiento.router,
+    prefix=f"{settings.API_V1_STR}/tickets",
+    tags=["Tickets para dispositivos."],
+)
 
 
 @app.get("/", tags=["Root"])

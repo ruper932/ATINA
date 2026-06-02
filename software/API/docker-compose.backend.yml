@@ -1,0 +1,50 @@
+version: '3.8'
+
+networks:
+  # Red aislada exclusiva para este proyecto. Ningún contenedor externo podrá entrar aquí.
+  backend-net:
+    driver: bridge
+
+volumes:
+  # Almacenamiento persistente para los datos de PostgreSQL (sensores, riegos, etc.)
+  postgres_data:
+  # Almacenamiento persistente para las fotos de perfil cargadas en uploads/
+  api_uploads:
+
+services:
+  # Base de Datos Aislada
+  db-atina:
+    image: postgres:15-alpine
+    container_name: atina_postgres_prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-cambiame_por_seguridad}
+      POSTGRES_DB: ${DB_NAME:-atina_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend-net
+    # ¡CRÍTICAL! Omitimos el bloque "ports". Al no exponer el puerto 5432 al host, 
+    # evitamos conflictos si ya tienes otra base de datos corriendo en tu Ubuntu Server.
+
+  # Backend FastAPI
+  backend-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: atina_backend_prod
+    restart: always
+    environment:
+      # URL de conexión apuntando al nombre del servicio "db-atina" dentro de la red interna
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-cambiame_por_seguridad}@db-atina:5432/${DB_NAME:-atina_db}
+    volumes:
+      - api_uploads:/workspace/uploads
+    depends_on:
+      - db-atina
+    networks:
+      - backend-net
+    ports:
+      # Mapeamos temporalmente el puerto 8000 para que puedas probar el backend de forma aislada
+      # desde tu red local antes de meter Cloudflare o Nginx.
+      - "8000:8000"
