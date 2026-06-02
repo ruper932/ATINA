@@ -19,6 +19,7 @@ async def init_db(db: AsyncSession) -> None:
         print("Creando el superusuario inicial...")
         
         user_in = UserCreate(
+	    ci="10085164",
             email="admin@atina.com",
             username="superadmin",
             password="demons312es", 
