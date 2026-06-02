@@ -18,11 +18,13 @@ type TokenPayload = {
 type AuthState = {
   token: string | null
   role: UserRole | null
+  user: string | null
 }
 
 type AuthContextType = {
   token: string | null
   role: UserRole | null
+  user: string | null
   isAuthenticated: boolean
   setAuth: (token: string) => void
   logout: () => void
@@ -40,7 +42,7 @@ function getInitialAuthState(): AuthState {
   const savedToken = localStorage.getItem('access_token')
 
   if (!savedToken) {
-    return { token: null, role: null }
+    return { token: null, role: null, user: null }
   }
 
   try {
@@ -48,16 +50,17 @@ function getInitialAuthState(): AuthState {
 
     if (isTokenExpired(decoded) || decoded.type === 'partial') {
       localStorage.removeItem('access_token')
-      return { token: null, role: null }
+      return { token: null, role: null, user: null }
     }
 
     return {
       token: savedToken,
       role: decoded.role ?? null,
+      user: decoded.sub ?? null,
     }
   } catch {
     localStorage.removeItem('access_token')
-    return { token: null, role: null }
+    return { token: null, role: null, user: null }
   }
 }
 
@@ -73,6 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAuthState({
           token: null,
           role: null,
+          user: null,
         })
         return
       }
@@ -82,12 +86,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAuthState({
         token,
         role: decoded.role ?? null,
+        user: decoded.sub ?? null,
       })
     } catch {
       localStorage.removeItem('access_token')
       setAuthState({
         token: null,
         role: null,
+        user: null,
       })
     }
   }, [])
@@ -97,6 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAuthState({
       token: null,
       role: null,
+      user: null,
     })
     window.location.href = '/login'
   }, [])
@@ -130,6 +137,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       token: auth.token,
       role: auth.role,
+      user: auth.user,
       isAuthenticated: !!auth.token,
       setAuth,
       logout,

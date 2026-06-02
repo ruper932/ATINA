@@ -1,3 +1,4 @@
+// src/config/navigation.ts
 import {
   LayoutDashboard,
   Users,
@@ -10,6 +11,7 @@ import {
   Activity,
   Link2,
   ClipboardList,
+  Wrench,
 } from "lucide-react";
 import type { UserRole } from "@/context/AuthContext";
 
@@ -80,6 +82,12 @@ export const dashboardNavItems: NavItem[] = [
     to: "/dashboard/solicitudes",
     icon: ClipboardList,
     allowedRoles: ["admin", "tecnico", "docente"],
+  },
+  {
+    title: "Tickets Mantenimiento",
+    to: "/dashboard/tickets",
+    icon: Wrench,
+    allowedRoles: ["admin", "tecnico", "docente"]
   },
   {
     title: "Reportes",

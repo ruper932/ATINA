@@ -25,6 +25,7 @@ import { solicitudesService } from "@/services/solicitudes.service";
 import { ubicacionesService } from "@/services/ubicaciones.service";
 import { atrapanieblasService } from "@/services/atrapanieblas.service";
 import { fuentesAguaService } from "@/services/fuentesAgua.service";
+import { usersService } from "@/services/users.service"; // Asegúrate de tener este servicio
 import { useAuth } from "@/hooks/useAuth";
 
 import type {
@@ -146,14 +147,20 @@ function normalizeError(error: unknown) {
   return "Ocurrió un error inesperado";
 }
 
-// Función para exportar a CSV
-function exportToCSV(data: SolicitudMovimiento[], filename: string) {
-  const headers = ["ID", "Tipo", "Recurso ID", "Solicitante", "Estado", "Fecha creación"];
+// Función para exportar a CSV (muestra código del recurso, nombre ubicación y nombre solicitante)
+function exportToCSV(
+  data: SolicitudMovimiento[],
+  recursoCodigoMap: Map<number, string>,
+  ubicacionNombreMap: Map<number, string>,
+  solicitanteNombreMap: Map<string, string>,
+  filename: string
+) {
+  const headers = ["ID", "Tipo", "Recurso", "Solicitante", "Estado", "Fecha creación"];
   const rows = data.map((item) => [
     item.id,
     tipoLabel[item.tipo_recurso],
-    item.recurso_id,
-    item.solicitante_ci,
+    recursoCodigoMap.get(item.recurso_id) ?? item.recurso_id,
+    solicitanteNombreMap.get(item.solicitante_ci) ?? item.solicitante_ci,
     estadoConfig[item.estado].label,
     formatDate(item.fecha_creacion),
   ]);
@@ -173,14 +180,20 @@ function exportToCSV(data: SolicitudMovimiento[], filename: string) {
   URL.revokeObjectURL(url);
 }
 
-// Función para exportar a Excel (XLSX via CSV)
-function exportToExcel(data: SolicitudMovimiento[], filename: string) {
-  const headers = ["ID", "Tipo", "Recurso ID", "Solicitante", "Estado", "Fecha creación"];
+// Función para exportar a Excel
+function exportToExcel(
+  data: SolicitudMovimiento[],
+  recursoCodigoMap: Map<number, string>,
+  ubicacionNombreMap: Map<number, string>,
+  solicitanteNombreMap: Map<string, string>,
+  filename: string
+) {
+  const headers = ["ID", "Tipo", "Recurso", "Solicitante", "Estado", "Fecha creación"];
   const rows = data.map((item) => [
     item.id,
     tipoLabel[item.tipo_recurso],
-    item.recurso_id,
-    item.solicitante_ci,
+    recursoCodigoMap.get(item.recurso_id) ?? item.recurso_id,
+    solicitanteNombreMap.get(item.solicitante_ci) ?? item.solicitante_ci,
     estadoConfig[item.estado].label,
     formatDate(item.fecha_creacion),
   ]);
@@ -200,8 +213,12 @@ function exportToExcel(data: SolicitudMovimiento[], filename: string) {
   URL.revokeObjectURL(url);
 }
 
-// Función para exportar a PDF (usando window.print)
-function exportToPDF(data: SolicitudMovimiento[]) {
+// Función para exportar a PDF
+function exportToPDF(
+  data: SolicitudMovimiento[],
+  recursoCodigoMap: Map<number, string>,
+  solicitanteNombreMap: Map<string, string>
+) {
   const printWindow = window.open("", "_blank");
   if (!printWindow) return;
 
@@ -228,8 +245,8 @@ function exportToPDF(data: SolicitudMovimiento[]) {
       <tr>
         <td>${item.id}</td>
         <td>${tipoLabel[item.tipo_recurso]}</td>
-        <td>${item.recurso_id}</td>
-        <td>${item.solicitante_ci}</td>
+        <td>${recursoCodigoMap.get(item.recurso_id) ?? item.recurso_id}</td>
+        <td>${solicitanteNombreMap.get(item.solicitante_ci) ?? item.solicitante_ci}</td>
         <td><span class="badge badge-${item.estado}">${estadoConfig[item.estado].label}</span></td>
         <td>${formatDate(item.fecha_creacion)}</td>
       </tr>
@@ -344,6 +361,62 @@ export default function SolicitudesPage() {
     queryFn: () => ubicacionesService.getAll(),
   });
 
+  // Queries para obtener TODOS los recursos
+  const todosAtrapanieblasQuery = useQuery({
+    queryKey: ["atrapanieblas", "todos-para-codigos"],
+    queryFn: () => atrapanieblasService.getAll(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const todasFuentesAguaQuery = useQuery({
+    queryKey: ["fuentes-agua", "todos-para-codigos"],
+    queryFn: () => fuentesAguaService.getAll(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Query para obtener todos los usuarios (solicitantes)
+  const usuariosQuery = useQuery({
+    queryKey: ["usuarios", "todos-para-solicitudes"],
+    queryFn: () => usersService.getAll(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Mapa id -> código para recursos
+  const recursoCodigoMap = useMemo(() => {
+    const map = new Map<number, string>();
+    (todosAtrapanieblasQuery.data ?? []).forEach((item: any) => {
+      if (item.id && item.codigo) map.set(item.id, item.codigo);
+    });
+    (todasFuentesAguaQuery.data ?? []).forEach((item: any) => {
+      if (item.id && item.codigo) map.set(item.id, item.codigo);
+    });
+    return map;
+  }, [todosAtrapanieblasQuery.data, todasFuentesAguaQuery.data]);
+
+  // Mapa id -> nombre para ubicaciones
+  const ubicacionNombreMap = useMemo(() => {
+    const map = new Map<number, string>();
+    (ubicacionesQuery.data ?? []).forEach((item: any) => {
+      if (item.id && item.nombre) map.set(item.id, item.nombre);
+    });
+    return map;
+  }, [ubicacionesQuery.data]);
+
+  // Mapa ci -> nombre completo para solicitantes
+  const solicitanteNombreMap = useMemo(() => {
+    const map = new Map<string, string>();
+    (usuariosQuery.data ?? []).forEach((item: any) => {
+      if (item.ci) {
+        const nombreCompleto = [item.nombres, item.apellido_paterno, item.apellido_materno]
+          .filter(Boolean)
+          .join(" ");
+        map.set(item.ci, nombreCompleto || item.ci);
+      }
+    });
+    return map;
+  }, [usuariosQuery.data]);
+
+  // Queries para el formulario de creación
   const atrapanieblasQuery = useQuery({
     queryKey: ["atrapanieblas", "all-for-solicitudes"],
     queryFn: () => atrapanieblasService.getAll(),
@@ -369,24 +442,32 @@ export default function SolicitudesPage() {
   const selectedSolicitudDetail: SolicitudMovimientoDetail | null =
     detalleSolicitudQuery.data ?? null;
 
-  // Filtrado en tiempo real
+  // Filtrado en tiempo real (incluye nombre de ubicación y de solicitante)
   const filteredSolicitudes = useMemo(() => {
     const items = solicitudes;
     const term = searchTerm.toLowerCase().trim();
-    
+
     if (!term) return items;
-    
+
     return items.filter((item) => {
+      const recursoCodigo = recursoCodigoMap.get(item.recurso_id) ?? "";
+      const solicitanteNombre = solicitanteNombreMap.get(item.solicitante_ci) ?? "";
+      const ubicacionOrigenNombre = ubicacionNombreMap.get(item.ubicacion_origen_id) ?? "";
+      const ubicacionDestinoNombre = ubicacionNombreMap.get(item.ubicacion_destino_id ?? 0) ?? "";
       return (
         String(item.id).includes(term) ||
         tipoLabel[item.tipo_recurso].toLowerCase().includes(term) ||
-        String(item.recurso_id).includes(term) ||
+        recursoCodigo.toLowerCase().includes(term) ||
+        solicitanteNombre.toLowerCase().includes(term) ||
         item.solicitante_ci.toLowerCase().includes(term) ||
+        ubicacionOrigenNombre.toLowerCase().includes(term) ||
+        ubicacionDestinoNombre.toLowerCase().includes(term) ||
+        (item.ubicacion_destino_propuesta?.toLowerCase().includes(term) ?? false) ||
         estadoConfig[item.estado].label.toLowerCase().includes(term) ||
         formatDate(item.fecha_creacion).toLowerCase().includes(term)
       );
     });
-  }, [solicitudes, searchTerm]);
+  }, [solicitudes, searchTerm, recursoCodigoMap, solicitanteNombreMap, ubicacionNombreMap]);
 
   const stats = useMemo(() => {
     const items = filteredSolicitudes;
@@ -404,6 +485,8 @@ export default function SolicitudesPage() {
     mutationFn: (payload: CrearSolicitudPayload) => solicitudesService.create(payload),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["solicitudes"] });
+      await queryClient.invalidateQueries({ queryKey: ["atrapanieblas"] });
+      await queryClient.invalidateQueries({ queryKey: ["fuentes-agua"] });
       createForm.reset({
         tipo_recurso: "atrapaniebla",
         recurso_id: undefined,
@@ -491,15 +574,27 @@ export default function SolicitudesPage() {
     isDocente && s.estado === "pendiente" && s.solicitante_ci === currentCi;
 
   const handleExportCSV = () => {
-    exportToCSV(filteredSolicitudes, `solicitudes_${new Date().toISOString().split("T")[0]}`);
+    exportToCSV(
+      filteredSolicitudes,
+      recursoCodigoMap,
+      ubicacionNombreMap,
+      solicitanteNombreMap,
+      `solicitudes_${new Date().toISOString().split("T")[0]}`
+    );
   };
 
   const handleExportExcel = () => {
-    exportToExcel(filteredSolicitudes, `solicitudes_${new Date().toISOString().split("T")[0]}`);
+    exportToExcel(
+      filteredSolicitudes,
+      recursoCodigoMap,
+      ubicacionNombreMap,
+      solicitanteNombreMap,
+      `solicitudes_${new Date().toISOString().split("T")[0]}`
+    );
   };
 
   const handleExportPDF = () => {
-    exportToPDF(filteredSolicitudes);
+    exportToPDF(filteredSolicitudes, recursoCodigoMap, solicitanteNombreMap);
   };
 
   return (
@@ -701,50 +796,28 @@ export default function SolicitudesPage() {
 
         <div className="grid gap-3 border-t border-border/70 px-6 py-5 md:grid-cols-6">
           <div className="rounded-xl border border-border/70 bg-background px-4 py-3">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">
-              Total
-            </p>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">Total</p>
             <p className="mt-1 text-2xl font-semibold text-foreground">{stats.total}</p>
           </div>
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-            <p className="text-xs uppercase tracking-wider text-amber-700">
-              Pendientes
-            </p>
-            <p className="mt-1 text-2xl font-semibold text-amber-700">
-              {stats.pendiente}
-            </p>
+            <p className="text-xs uppercase tracking-wider text-amber-700">Pendientes</p>
+            <p className="mt-1 text-2xl font-semibold text-amber-700">{stats.pendiente}</p>
           </div>
           <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
-            <p className="text-xs uppercase tracking-wider text-blue-700">
-              En revisión
-            </p>
-            <p className="mt-1 text-2xl font-semibold text-blue-700">
-              {stats.en_revision}
-            </p>
+            <p className="text-xs uppercase tracking-wider text-blue-700">En revisión</p>
+            <p className="mt-1 text-2xl font-semibold text-blue-700">{stats.en_revision}</p>
           </div>
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-            <p className="text-xs uppercase tracking-wider text-emerald-700">
-              Aprobadas
-            </p>
-            <p className="mt-1 text-2xl font-semibold text-emerald-700">
-              {stats.aprobada}
-            </p>
+            <p className="text-xs uppercase tracking-wider text-emerald-700">Aprobadas</p>
+            <p className="mt-1 text-2xl font-semibold text-emerald-700">{stats.aprobada}</p>
           </div>
           <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
-            <p className="text-xs uppercase tracking-wider text-rose-700">
-              Rechazadas
-            </p>
-            <p className="mt-1 text-2xl font-semibold text-rose-700">
-              {stats.rechazada}
-            </p>
+            <p className="text-xs uppercase tracking-wider text-rose-700">Rechazadas</p>
+            <p className="mt-1 text-2xl font-semibold text-rose-700">{stats.rechazada}</p>
           </div>
           <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3">
-            <p className="text-xs uppercase tracking-wider text-zinc-600">
-              Canceladas
-            </p>
-            <p className="mt-1 text-2xl font-semibold text-zinc-600">
-              {stats.cancelada}
-            </p>
+            <p className="text-xs uppercase tracking-wider text-zinc-600">Canceladas</p>
+            <p className="mt-1 text-2xl font-semibold text-zinc-600">{stats.cancelada}</p>
           </div>
         </div>
       </section>
@@ -805,7 +878,7 @@ export default function SolicitudesPage() {
             <div className="relative w-full md:w-80">
               <input
                 type="text"
-                placeholder="Buscar por ID, tipo, recurso, solicitante o estado..."
+                placeholder="Buscar por ID, tipo, recurso, solicitante, ubicación o estado..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="h-11 w-full rounded-xl border border-border/70 bg-background px-4 pl-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -854,8 +927,12 @@ export default function SolicitudesPage() {
                       <TableCell className="font-medium">
                         {tipoLabel[solicitud.tipo_recurso]}
                       </TableCell>
-                      <TableCell>{solicitud.recurso_id}</TableCell>
-                      <TableCell>{solicitud.solicitante_ci}</TableCell>
+                      <TableCell>
+                        {recursoCodigoMap.get(solicitud.recurso_id) ?? solicitud.recurso_id}
+                      </TableCell>
+                      <TableCell>
+                        {solicitanteNombreMap.get(solicitud.solicitante_ci) ?? solicitud.solicitante_ci}
+                      </TableCell>
                       <TableCell>
                         <div
                           className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${estadoConfig[solicitud.estado].bgColor} ${estadoConfig[solicitud.estado].color}`}
@@ -954,7 +1031,7 @@ export default function SolicitudesPage() {
         )}
       </section>
 
-      {/* Diálogos (sin cambios en lógica, solo estilos) */}
+      {/* Diálogo de detalle */}
       <Dialog
         open={openDetail}
         onOpenChange={(value) => {
@@ -996,50 +1073,44 @@ export default function SolicitudesPage() {
                 </div>
 
                 <div className="rounded-xl border border-border/70 p-4">
-                  <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                    Recurso ID
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">Código recurso</p>
+                  <p className="mt-2 text-sm font-medium">
+                    {recursoCodigoMap.get(selectedSolicitudDetail.recurso_id) ?? selectedSolicitudDetail.recurso_id}
                   </p>
-                  <p className="mt-2 text-sm font-medium">{selectedSolicitudDetail.recurso_id}</p>
                 </div>
 
                 <div className="rounded-xl border border-border/70 p-4">
-                  <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                    Solicitante
-                  </p>
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">Solicitante</p>
                   <p className="mt-2 text-sm font-medium">
-                    {selectedSolicitudDetail.solicitante_ci}
+                    {solicitanteNombreMap.get(selectedSolicitudDetail.solicitante_ci) ?? selectedSolicitudDetail.solicitante_ci}
                   </p>
                 </div>
 
                 <div className="rounded-xl border border-border/70 p-4">
                   <p className="text-xs uppercase tracking-wider text-muted-foreground">Revisor</p>
                   <p className="mt-2 text-sm font-medium">
-                    {selectedSolicitudDetail.revisor_ci || "—"}
+                    {selectedSolicitudDetail.revisor_ci ? (solicitanteNombreMap.get(selectedSolicitudDetail.revisor_ci) ?? selectedSolicitudDetail.revisor_ci) : "—"}
                   </p>
                 </div>
 
                 <div className="rounded-xl border border-border/70 p-4">
-                  <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                    Ubicación origen
-                  </p>
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">Ubicación origen</p>
                   <p className="mt-2 text-sm font-medium">
-                    {selectedSolicitudDetail.ubicacion_origen_id}
+                    {ubicacionNombreMap.get(selectedSolicitudDetail.ubicacion_origen_id) ?? selectedSolicitudDetail.ubicacion_origen_id}
                   </p>
                 </div>
 
                 <div className="rounded-xl border border-border/70 p-4">
-                  <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                    Ubicación destino
-                  </p>
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">Ubicación destino</p>
                   <p className="mt-2 text-sm font-medium">
-                    {selectedSolicitudDetail.ubicacion_destino_id || "—"}
+                    {selectedSolicitudDetail.ubicacion_destino_id
+                      ? (ubicacionNombreMap.get(selectedSolicitudDetail.ubicacion_destino_id) ?? selectedSolicitudDetail.ubicacion_destino_id)
+                      : "—"}
                   </p>
                 </div>
 
                 <div className="rounded-xl border border-border/70 p-4">
-                  <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                    Destino propuesto
-                  </p>
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">Destino propuesto</p>
                   <p className="mt-2 text-sm font-medium">
                     {selectedSolicitudDetail.ubicacion_destino_propuesta || "—"}
                   </p>
@@ -1120,7 +1191,7 @@ export default function SolicitudesPage() {
                         <div className="mt-3 flex items-center gap-2 text-sm">
                           <div className="h-4 w-4" />
                           <span>
-                            <span className="font-medium">Actor:</span> {item.actor_ci || "—"}
+                            <span className="font-medium">Actor:</span> {item.actor_ci ? (solicitanteNombreMap.get(item.actor_ci) ?? item.actor_ci) : "—"}
                           </span>
                         </div>
 
@@ -1160,15 +1231,13 @@ export default function SolicitudesPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Diálogos de tomar, resolver y cancelar (sin cambios funcionales) */}
       <Dialog open={openTomar} onOpenChange={setOpenTomar}>
         <DialogContent className="border-border/70 sm:max-w-md">
           <DialogHeader className="space-y-2 border-b border-border/70 pb-4">
             <DialogTitle className="text-xl">Tomar solicitud</DialogTitle>
-            <DialogDescription>
-              La solicitud pasará a estado "En revisión"
-            </DialogDescription>
+            <DialogDescription>La solicitud pasará a estado "En revisión"</DialogDescription>
           </DialogHeader>
-
           <div className="space-y-5 pt-2">
             <div className="space-y-2">
               <Label className="text-sm font-medium">Comentario (opcional)</Label>
@@ -1180,13 +1249,11 @@ export default function SolicitudesPage() {
                 className="rounded-xl border-border/70"
               />
             </div>
-
             {tomarMutation.isError && (
               <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
                 {normalizeError(tomarMutation.error)}
               </div>
             )}
-
             <div className="flex justify-end gap-2 border-t border-border/70 pt-4">
               <Button variant="outline" onClick={() => setOpenTomar(false)} className="rounded-xl">
                 Cancelar
@@ -1213,11 +1280,8 @@ export default function SolicitudesPage() {
         <DialogContent className="max-h-[90vh] overflow-y-auto border-border/70 sm:max-w-2xl">
           <DialogHeader className="space-y-2 border-b border-border/70 pb-4">
             <DialogTitle className="text-xl">Resolver solicitud</DialogTitle>
-            <DialogDescription>
-              Aprueba o rechaza la solicitud con observación obligatoria
-            </DialogDescription>
+            <DialogDescription>Aprueba o rechaza la solicitud con observación obligatoria</DialogDescription>
           </DialogHeader>
-
           <form className="space-y-6 pt-2" onSubmit={onResolverSubmit}>
             <div className="space-y-2">
               <Label className="text-sm font-medium">Decisión</Label>
@@ -1308,11 +1372,8 @@ export default function SolicitudesPage() {
         <DialogContent className="border-border/70 sm:max-w-md">
           <DialogHeader className="space-y-2 border-b border-border/70 pb-4">
             <DialogTitle className="text-xl">Cancelar solicitud</DialogTitle>
-            <DialogDescription>
-              Solo puedes cancelar solicitudes pendientes creadas por ti
-            </DialogDescription>
+            <DialogDescription>Solo puedes cancelar solicitudes pendientes creadas por ti</DialogDescription>
           </DialogHeader>
-
           <div className="space-y-5 pt-2">
             <div className="space-y-2">
               <Label className="text-sm font-medium">Comentario (opcional)</Label>
@@ -1324,13 +1385,11 @@ export default function SolicitudesPage() {
                 className="rounded-xl border-border/70"
               />
             </div>
-
             {cancelarMutation.isError && (
               <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
                 {normalizeError(cancelarMutation.error)}
               </div>
             )}
-
             <div className="flex justify-end gap-2 border-t border-border/70 pt-4">
               <Button variant="outline" onClick={() => setOpenCancelar(false)} className="rounded-xl">
                 Volver

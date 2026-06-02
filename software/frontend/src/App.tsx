@@ -23,6 +23,7 @@ import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
 import { RoleRoute } from '@/components/auth/RoleRoute'
 import { AuthProvider } from '@/context/AuthContext'
 import AtrapanieblasPage from './pages/dashboard/AtrapanieblasPage'
+import TicketsMantenimientoPage from './pages/dashboard/TicketsMantenimientoPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -187,7 +188,16 @@ export default function App() {
                     </RoleRoute>
                   }
                 />
-
+                <Route
+                  path="/dashboard/tickets"
+                  element={
+                    <RoleRoute allowedRoles={['admin', 'tecnico', 'docente']}>
+                      <DashboardLayout>
+                        <TicketsMantenimientoPage />
+                      </DashboardLayout>
+                    </RoleRoute>
+                  }
+                />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </div>
