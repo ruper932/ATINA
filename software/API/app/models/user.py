@@ -32,6 +32,13 @@ class User(Base):
 
     rol: Mapped["Rol | None"] = relationship("Rol", lazy="selectin")
     estado_usuario: Mapped["EstadoUsuario | None"] = relationship("EstadoUsuario", lazy="selectin")
+    perfil: Mapped["Perfil | None"] = relationship(
+        "Perfil",
+        back_populates="user",
+        uselist=False,
+        lazy="selectin",
+        cascade="all, delete-orphan",
+    )
 
     ultimo_acceso: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),

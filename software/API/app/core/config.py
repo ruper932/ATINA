@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     APP_NAME: str = "ATINA API"
-    APP_VERSION: str = "1.0.0"
+    APP_VERSION: str = "1.6.18"
     APP_ENV: str = "development"
     DEBUG: bool = True
 
@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
-    BACKEND_CORS_ORIGINS: list[str] = Field(default=["http://localhost:3000", "http://localhost:5173","http://192.168.1.80:8080"],"https://atina.ruper-priv.uk")
+    BACKEND_CORS_ORIGINS: list[str] = Field(default=["http://localhost:3000", "http://localhost:5173", "http://192.168.1.80:8080", "https://atina.ruper-priv.uk"])
 
     model_config = SettingsConfigDict(
         env_file=".env",

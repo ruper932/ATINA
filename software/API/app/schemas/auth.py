@@ -12,10 +12,12 @@ class LoginResponse(BaseModel):
     method: Literal["totp", "email"] | None = None
     message: str | None = None
 
+
 class Verify2FARequest(BaseModel):
     temp_token: str
     code: str = Field(..., min_length=4, max_length=10)
     method: Literal["totp", "email"]
+    trust_device: bool = False
 
 
 class SetupTOTPResponse(BaseModel):
@@ -48,7 +50,16 @@ class PerfilResponse(BaseModel):
     is_totp_enabled: bool
     is_email_2fa_enabled: bool
 
+    nombres: str | None = None
+    apellido_paterno: str | None = None
+    apellido_materno: str | None = None
+    telefono: str | None = None
+    cargo: str | None = None
+    foto_url: str | None = None
+    bio: str | None = None
+
     model_config = ConfigDict(from_attributes=True)
+
 
 class PerfilUpdate(BaseModel):
     email: EmailStr
@@ -58,7 +69,7 @@ class PerfilUpdate(BaseModel):
 
 class PerfilPasswordUpdate(BaseModel):
     password_actual: str = Field(..., min_length=8)
-    password_nueva: str = Field(..., min_length=8)
+    password_nueva: str = Field(..., min_length=8, max_length=128)
 
 
 class MessageResponse(BaseModel):

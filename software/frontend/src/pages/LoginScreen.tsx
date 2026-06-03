@@ -17,6 +17,7 @@ import axios from 'axios'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Card,
   CardContent,
@@ -118,6 +119,7 @@ export default function LoginScreen() {
   const [otpMethod, setOtpMethod] = useState<TwoFactorMethod | null>(null)
   const [otpMessage, setOtpMessage] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
+  const [trustDevice, setTrustDevice] = useState(false)
 
   const lastSubmittedOtpRef = useRef<string | null>(null)
 
@@ -156,6 +158,7 @@ export default function LoginScreen() {
         setTempToken(payload.temp_token)
         setOtpMethod(payload.method)
         setOtpMessage(payload.message ?? 'Ingresa tu código de verificación.')
+        setTrustDevice(false)
         setOtpCode('')
         setApiError(null)
         lastSubmittedOtpRef.current = null
@@ -196,6 +199,7 @@ export default function LoginScreen() {
         temp_token: tempToken,
         code: normalizedCode,
         method: otpMethod,
+        trust_device: trustDevice,
       })
 
       const token = response.data?.access_token
@@ -231,13 +235,14 @@ export default function LoginScreen() {
 
     lastSubmittedOtpRef.current = otpCode
     void verifyOtp(otpCode)
-  }, [otpCode, tempToken, otpMethod, isVerifyingOtp])
+  }, [otpCode, tempToken, otpMethod, isVerifyingOtp, trustDevice])
 
   const resetToLogin = () => {
     setTempToken(null)
     setOtpMethod(null)
     setOtpMessage(null)
     setOtpCode('')
+    setTrustDevice(false)
     setApiError(null)
     lastSubmittedOtpRef.current = null
   }
@@ -383,6 +388,26 @@ export default function LoginScreen() {
                   <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
                     <LockKeyhole className="h-3.5 w-3.5" />
                     <span>Código de 6 dígitos</span>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3 rounded-xl border p-4">
+                  <Checkbox
+                    id="trust-device-login"
+                    checked={trustDevice}
+                    onCheckedChange={(checked) => setTrustDevice(Boolean(checked))}
+                    disabled={isVerifyingOtp}
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                    <label
+                      htmlFor="trust-device-login"
+                      className="text-sm font-medium leading-none"
+                    >
+                      Confiar en este dispositivo
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                      No se solicitará el segundo factor nuevamente durante 30 días en este navegador.
+                    </p>
                   </div>
                 </div>
 

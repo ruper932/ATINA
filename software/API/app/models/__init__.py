@@ -11,3 +11,4 @@ from app.models.umbrales import *
 from app.models.reportes import *
 from app.models.solicitudes import *
 from app.models.tickets_mantenimiento import *
+from app.models.trusted_device import *

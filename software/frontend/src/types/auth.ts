@@ -1,42 +1,42 @@
+export type TwoFactorMethod = 'totp' | 'email'
+
 export type LoginPayload = {
-  ci: string
+  username: string
   password: string
+}
+
+export type AuthUserSummary = {
+  ci: string
+  username: string
+  email: string
+  is_totp_enabled: boolean
+  is_email_2fa_enabled: boolean
 }
 
 export type LoginSuccessResponse = {
   access_token: string
   token_type: string
-  user: {
-    ci: string
-    username: string
-    email: string
-    is_totp_enabled: boolean
-    is_email_2fa_enabled: boolean
-  }
 }
 
 export type LoginRequires2FAResponse = {
   requires_2fa: true
-  user_id: string
-  method: 'totp' | 'email'
-  message?: string
+  temp_token: string
+  method: TwoFactorMethod
+  message?: string | null
 }
 
+export type LoginResponse = LoginSuccessResponse | LoginRequires2FAResponse
+
 export type Verify2FAPayload = {
-  user_id: string
+  temp_token: string
   code: string
+  method: TwoFactorMethod
+  trust_device?: boolean
 }
 
 export type Verify2FAResponse = {
   access_token: string
   token_type: string
-  user: {
-    ci: string
-    username: string
-    email: string
-    is_totp_enabled: boolean
-    is_email_2fa_enabled: boolean
-  }
 }
 
 export type ToggleEmail2FAPayload = {

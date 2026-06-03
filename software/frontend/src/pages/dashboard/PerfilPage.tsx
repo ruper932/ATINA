@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import {
@@ -13,6 +13,12 @@ import {
   Unlock,
   Eye,
   EyeOff,
+  Phone,
+  Briefcase,
+  FileText,
+  Mail,
+  IdCard,
+  Image as ImageIcon,
 } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 
@@ -27,6 +33,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Card,
   CardContent,
@@ -47,6 +54,13 @@ type PerfilFormState = {
   email: string
   username: string
   password_actual: string
+  nombres: string
+  apellido_paterno: string
+  apellido_materno: string
+  telefono: string
+  cargo: string
+  foto_url: string
+  bio: string
 }
 
 type PasswordFormState = {
@@ -68,6 +82,13 @@ const initialPerfilForm: PerfilFormState = {
   email: '',
   username: '',
   password_actual: '',
+  nombres: '',
+  apellido_paterno: '',
+  apellido_materno: '',
+  telefono: '',
+  cargo: '',
+  foto_url: '',
+  bio: '',
 }
 
 const initialPasswordForm: PasswordFormState = {
@@ -225,9 +246,16 @@ export default function PerfilPage() {
   useEffect(() => {
     if (perfil) {
       setPerfilForm({
-        email: perfil.email,
-        username: perfil.username,
+        email: perfil.email ?? '',
+        username: perfil.username ?? '',
         password_actual: '',
+        nombres: perfil.nombres ?? '',
+        apellido_paterno: perfil.apellido_paterno ?? '',
+        apellido_materno: perfil.apellido_materno ?? '',
+        telefono: perfil.telefono ?? '',
+        cargo: perfil.cargo ?? '',
+        foto_url: perfil.foto_url ?? '',
+        bio: perfil.bio ?? '',
       })
     }
   }, [perfil])
@@ -235,7 +263,22 @@ export default function PerfilPage() {
   function handlePerfilError(error: unknown) {
     if (axios.isAxiosError(error)) {
       const detail = error.response?.data?.detail
-      setApiError(typeof detail === 'string' ? detail : 'No se pudo actualizar el perfil.')
+
+      if (typeof detail === 'string') {
+        setApiError(detail)
+        return
+      }
+
+      if (Array.isArray(detail)) {
+        const message = detail
+          .map((item) => item?.msg)
+          .filter(Boolean)
+          .join(' | ')
+        setApiError(message || 'No se pudo actualizar el perfil.')
+        return
+      }
+
+      setApiError('No se pudo actualizar el perfil.')
     } else {
       setApiError('Ocurrió un error inesperado.')
     }
@@ -361,8 +404,16 @@ export default function PerfilPage() {
     setApiError(null)
     setSuccessMessage(null)
 
-    if (!perfilForm.email.trim() || !perfilForm.username.trim() || !perfilForm.password_actual.trim()) {
-      setApiError('Correo, usuario y contraseña actual son obligatorios.')
+    if (
+      !perfilForm.email.trim() ||
+      !perfilForm.username.trim() ||
+      !perfilForm.nombres.trim() ||
+      !perfilForm.apellido_paterno.trim() ||
+      !perfilForm.password_actual.trim()
+    ) {
+      setApiError(
+        'Correo, usuario, nombres, apellido paterno y contraseña actual son obligatorios.'
+      )
       return
     }
 
@@ -370,6 +421,13 @@ export default function PerfilPage() {
       email: perfilForm.email.trim(),
       username: perfilForm.username.trim(),
       password_actual: perfilForm.password_actual,
+      nombres: perfilForm.nombres.trim(),
+      apellido_paterno: perfilForm.apellido_paterno.trim(),
+      apellido_materno: perfilForm.apellido_materno.trim() || null,
+      telefono: perfilForm.telefono.trim() || null,
+      cargo: perfilForm.cargo.trim() || null,
+      foto_url: perfilForm.foto_url.trim() || null,
+      bio: perfilForm.bio.trim() || null,
     })
   }
 
@@ -442,6 +500,36 @@ export default function PerfilPage() {
     })
   }
 
+  const fullName = useMemo(() => {
+    if (!perfil) return 'Mi perfil'
+
+    return (
+      [perfil.nombres, perfil.apellido_paterno, perfil.apellido_materno]
+        .filter((value) => value && value.trim().length > 0)
+        .join(' ')
+        .trim() || perfil.username
+    )
+  }, [perfil])
+
+  const profileInitials = useMemo(() => {
+    if (!perfil) return 'U'
+
+    const source = [perfil.nombres, perfil.apellido_paterno, perfil.apellido_materno]
+      .filter((value) => value && value.trim().length > 0)
+      .join(' ')
+      .trim()
+
+    if (!source) {
+      return perfil.username.slice(0, 2).toUpperCase()
+    }
+
+    return source
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part.charAt(0).toUpperCase())
+      .join('')
+  }, [perfil])
+
   const currentRole = perfil?.rol_nombre ?? (perfil?.rol_id ? `Rol #${perfil.rol_id}` : '—')
   const currentEstado =
     perfil?.estado_usuario_nombre ??
@@ -453,11 +541,26 @@ export default function PerfilPage() {
   const lastAccessLabel = perfil?.ultimo_acceso
     ? new Date(perfil.ultimo_acceso).toLocaleString()
     : 'Nunca'
+  const createdAtLabel = perfil?.created_at
+    ? new Date(perfil.created_at).toLocaleString()
+    : '—'
+
+  const phoneLabel = perfil?.telefono?.trim() ? perfil.telefono : 'No registrado'
+  const cargoLabel = perfil?.cargo?.trim() ? perfil.cargo : 'No registrado'
+  const bioLabel = perfil?.bio?.trim() ? perfil.bio : 'Sin biografía registrada'
 
   const isPerfilLoading = perfilQuery.isLoading
   const isDirty =
     !!perfil &&
-    (perfilForm.email !== perfil.email || perfilForm.username !== perfil.username)
+    (perfilForm.email !== (perfil.email ?? '') ||
+      perfilForm.username !== (perfil.username ?? '') ||
+      perfilForm.nombres !== (perfil.nombres ?? '') ||
+      perfilForm.apellido_paterno !== (perfil.apellido_paterno ?? '') ||
+      perfilForm.apellido_materno !== (perfil.apellido_materno ?? '') ||
+      perfilForm.telefono !== (perfil.telefono ?? '') ||
+      perfilForm.cargo !== (perfil.cargo ?? '') ||
+      perfilForm.foto_url !== (perfil.foto_url ?? '') ||
+      perfilForm.bio !== (perfil.bio ?? ''))
 
   return (
     <div className="space-y-6">
@@ -483,17 +586,25 @@ export default function PerfilPage() {
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-4">
               <div className="flex items-center gap-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-border/70 bg-background">
-                  <UserCircle2 className="h-8 w-8 text-muted-foreground" />
-                </div>
+                {perfil?.foto_url ? (
+                  <img
+                    src={perfil.foto_url}
+                    alt={`Foto de perfil de ${fullName}`}
+                    className="h-16 w-16 rounded-2xl border border-border/70 object-cover"
+                  />
+                ) : (
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-border/70 bg-background text-lg font-semibold text-muted-foreground">
+                    {profileInitials || <UserCircle2 className="h-8 w-8" />}
+                  </div>
+                )}
 
                 <div>
                   <p className="text-sm text-muted-foreground">Perfil de usuario</p>
                   <h1 className="text-3xl font-bold tracking-tight text-foreground">
-                    {perfil?.username ?? 'Mi perfil'}
+                    {fullName}
                   </h1>
                   <p className="text-sm text-muted-foreground">
-                    {perfil?.email ?? '—'}
+                    @{perfil?.username ?? '—'} · {perfil?.email ?? '—'}
                   </p>
                 </div>
               </div>
@@ -538,53 +649,117 @@ export default function PerfilPage() {
       )}
 
       <section className="grid gap-6 xl:grid-cols-[1fr_1.2fr]">
-        <Card className="border-border/70 shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <UserCircle2 className="h-5 w-5" />
-              Resumen de cuenta
-            </CardTitle>
-            <CardDescription>Información principal de tu cuenta y acceso.</CardDescription>
-          </CardHeader>
+        <div className="space-y-6">
+          <Card className="border-border/70 shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserCircle2 className="h-5 w-5" />
+                Resumen de cuenta
+              </CardTitle>
+              <CardDescription>Información principal de tu cuenta y acceso.</CardDescription>
+            </CardHeader>
 
-          <CardContent className="space-y-3">
-            {isPerfilLoading ? (
-              <>
-                <SkeletonBox className="h-14 w-full" />
-                <SkeletonBox className="h-14 w-full" />
-                <SkeletonBox className="h-14 w-full" />
-              </>
-            ) : perfil ? (
-              <>
-                <ReadonlyInfoBlock label="CI" value={perfil.ci} />
-                <ReadonlyInfoBlock label="Último acceso" value={lastAccessLabel} />
-                <ReadonlyInfoBlock
-                  label="Seguridad"
-                  value={
-                    perfil.is_totp_enabled || perfil.is_email_2fa_enabled
-                      ? 'Protegida'
-                      : 'Básica'
-                  }
-                />
-                <div className="flex flex-wrap gap-2 pt-1">
-                  <StatusPill tone={perfil?.is_totp_enabled ? 'success' : 'warning'}>
-                    TOTP {totpLabel.toLowerCase()}
-                  </StatusPill>
-                  <StatusPill tone={perfil?.is_email_2fa_enabled ? 'success' : 'warning'}>
-                    Correo 2FA {email2faLabel.toLowerCase()}
-                  </StatusPill>
-                </div>
-              </>
-            ) : null}
-          </CardContent>
-        </Card>
+            <CardContent className="space-y-3">
+              {isPerfilLoading ? (
+                <>
+                  <SkeletonBox className="h-14 w-full" />
+                  <SkeletonBox className="h-14 w-full" />
+                  <SkeletonBox className="h-14 w-full" />
+                </>
+              ) : perfil ? (
+                <>
+                  <ReadonlyInfoBlock label="CI" value={perfil.ci} />
+                  <ReadonlyInfoBlock label="Último acceso" value={lastAccessLabel} />
+                  <ReadonlyInfoBlock label="Registrado el" value={createdAtLabel} />
+                  <ReadonlyInfoBlock
+                    label="Seguridad"
+                    value={
+                      perfil.is_totp_enabled || perfil.is_email_2fa_enabled
+                        ? 'Protegida'
+                        : 'Básica'
+                    }
+                  />
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <StatusPill tone={perfil.is_totp_enabled ? 'success' : 'warning'}>
+                      TOTP {totpLabel.toLowerCase()}
+                    </StatusPill>
+                    <StatusPill tone={perfil.is_email_2fa_enabled ? 'success' : 'warning'}>
+                      Correo 2FA {email2faLabel.toLowerCase()}
+                    </StatusPill>
+                  </div>
+                </>
+              ) : null}
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/70 shadow-sm">
+            <CardHeader>
+              <CardTitle>Información personal</CardTitle>
+              <CardDescription>
+                Datos adicionales asociados a tu perfil de usuario.
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="space-y-4">
+              {isPerfilLoading ? (
+                <>
+                  <SkeletonBox className="h-14 w-full" />
+                  <SkeletonBox className="h-14 w-full" />
+                  <SkeletonBox className="h-14 w-full" />
+                  <SkeletonBox className="h-24 w-full" />
+                </>
+              ) : perfil ? (
+                <>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <ReadonlyInfoBlock label="Nombres" value={perfil.nombres?.trim() || 'No registrado'} />
+                    <ReadonlyInfoBlock
+                      label="Apellido paterno"
+                      value={perfil.apellido_paterno?.trim() || 'No registrado'}
+                    />
+                    <ReadonlyInfoBlock
+                      label="Apellido materno"
+                      value={perfil.apellido_materno?.trim() || 'No registrado'}
+                    />
+                    <ReadonlyInfoBlock label="Cargo" value={cargoLabel} />
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="rounded-2xl border border-border/70 bg-background p-4">
+                      <div className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
+                        <Phone className="h-4 w-4" />
+                        Teléfono
+                      </div>
+                      <p className="text-sm text-muted-foreground">{phoneLabel}</p>
+                    </div>
+
+                    <div className="rounded-2xl border border-border/70 bg-background p-4">
+                      <div className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
+                        <Mail className="h-4 w-4" />
+                        Correo actual
+                      </div>
+                      <p className="text-sm text-muted-foreground">{perfil.email}</p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-border/70 bg-background p-4">
+                    <div className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
+                      <FileText className="h-4 w-4" />
+                      Biografía
+                    </div>
+                    <p className="whitespace-pre-wrap text-sm text-muted-foreground">{bioLabel}</p>
+                  </div>
+                </>
+              ) : null}
+            </CardContent>
+          </Card>
+        </div>
 
         <div className="space-y-6">
           <Card className="border-border/70 shadow-sm">
             <CardHeader>
               <CardTitle>Datos básicos</CardTitle>
               <CardDescription>
-                Edita tu correo y nombre de usuario. Debes confirmar con tu contraseña actual.
+                Edita tu información de perfil. Debes confirmar con tu contraseña actual.
               </CardDescription>
             </CardHeader>
 
@@ -609,6 +784,101 @@ export default function PerfilPage() {
                     <ReadonlyInfoBlock label="CI" value={perfil?.ci ?? '—'} />
                     <ReadonlyInfoBlock label="Rol" value={currentRole} />
                     <ReadonlyInfoBlock label="Estado" value={currentEstado} />
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="nombres">Nombres</Label>
+                      <Input
+                        id="nombres"
+                        value={perfilForm.nombres}
+                        onChange={(e) =>
+                          setPerfilForm((prev) => ({
+                            ...prev,
+                            nombres: e.target.value,
+                          }))
+                        }
+                        placeholder="Juan Carlos"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="apellido_paterno">Apellido paterno</Label>
+                      <Input
+                        id="apellido_paterno"
+                        value={perfilForm.apellido_paterno}
+                        onChange={(e) =>
+                          setPerfilForm((prev) => ({
+                            ...prev,
+                            apellido_paterno: e.target.value,
+                          }))
+                        }
+                        placeholder="Pérez"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="apellido_materno">Apellido materno</Label>
+                      <Input
+                        id="apellido_materno"
+                        value={perfilForm.apellido_materno}
+                        onChange={(e) =>
+                          setPerfilForm((prev) => ({
+                            ...prev,
+                            apellido_materno: e.target.value,
+                          }))
+                        }
+                        placeholder="Gutiérrez"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="telefono">Teléfono</Label>
+                      <Input
+                        id="telefono"
+                        value={perfilForm.telefono}
+                        onChange={(e) =>
+                          setPerfilForm((prev) => ({
+                            ...prev,
+                            telefono: e.target.value,
+                          }))
+                        }
+                        placeholder="+59170000000"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="cargo">Cargo</Label>
+                      <Input
+                        id="cargo"
+                        value={perfilForm.cargo}
+                        onChange={(e) =>
+                          setPerfilForm((prev) => ({
+                            ...prev,
+                            cargo: e.target.value,
+                          }))
+                        }
+                        placeholder="Analista, docente, técnico..."
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="foto_url" className="flex items-center gap-2">
+                        <ImageIcon className="h-4 w-4" />
+                        Foto URL
+                      </Label>
+                      <Input
+                        id="foto_url"
+                        value={perfilForm.foto_url}
+                        onChange={(e) =>
+                          setPerfilForm((prev) => ({
+                            ...prev,
+                            foto_url: e.target.value,
+                          }))
+                        }
+                        placeholder="https://..."
+                      />
+                    </div>
                   </div>
 
                   <div className="grid gap-4 md:grid-cols-2">
@@ -642,6 +912,22 @@ export default function PerfilPage() {
                         placeholder="jperez"
                       />
                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="bio">Biografía</Label>
+                    <Textarea
+                      id="bio"
+                      value={perfilForm.bio}
+                      onChange={(e) =>
+                        setPerfilForm((prev) => ({
+                          ...prev,
+                          bio: e.target.value,
+                        }))
+                      }
+                      placeholder="Cuéntanos algo sobre ti"
+                      className="min-h-[120px]"
+                    />
                   </div>
 
                   <PasswordField
@@ -968,7 +1254,12 @@ export default function PerfilPage() {
                   </div>
 
                   <DialogFooter>
-                    <Button type="button" variant="outline" className="border-border/70" onClick={closeTotpModal}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="border-border/70"
+                      onClick={closeTotpModal}
+                    >
                       Cancelar
                     </Button>
                     <Button type="submit" disabled={enableTotpMutation.isPending}>

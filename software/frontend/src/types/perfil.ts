@@ -13,12 +13,27 @@ export type PerfilResponse = {
   ultimo_acceso: string | null
   created_at?: string
   updated_at?: string
+
+  nombres: string | null
+  apellido_paterno: string | null
+  apellido_materno: string | null
+  telefono: string | null
+  cargo: string | null
+  foto_url: string | null
+  bio: string | null
 }
 
 export type PerfilUpdatePayload = {
   email: string
   username: string
   password_actual: string
+  nombres: string
+  apellido_paterno: string
+  apellido_materno?: string | null
+  telefono?: string | null
+  cargo?: string | null
+  bio?: string | null
+  foto_url?: string | null
 }
 
 export type PerfilPasswordPayload = {

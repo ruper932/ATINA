@@ -7,6 +7,7 @@ export type UserRole =
   | 'tecnico'
   | 'estudiante'
   | 'invitado'
+  | 'superadmin'
 
 type TokenPayload = {
   sub: string
@@ -38,6 +39,10 @@ function isTokenExpired(decoded: TokenPayload) {
   return decoded.exp <= nowInSeconds
 }
 
+function clearStoredAuth() {
+  localStorage.removeItem('access_token')
+}
+
 function getInitialAuthState(): AuthState {
   const savedToken = localStorage.getItem('access_token')
 
@@ -49,7 +54,7 @@ function getInitialAuthState(): AuthState {
     const decoded = jwtDecode<TokenPayload>(savedToken)
 
     if (isTokenExpired(decoded) || decoded.type === 'partial') {
-      localStorage.removeItem('access_token')
+      clearStoredAuth()
       return { token: null, role: null, user: null }
     }
 
@@ -59,7 +64,7 @@ function getInitialAuthState(): AuthState {
       user: decoded.sub ?? null,
     }
   } catch {
-    localStorage.removeItem('access_token')
+    clearStoredAuth()
     return { token: null, role: null, user: null }
   }
 }
@@ -72,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const decoded = jwtDecode<TokenPayload>(token)
 
       if (isTokenExpired(decoded) || decoded.type === 'partial') {
-        localStorage.removeItem('access_token')
+        clearStoredAuth()
         setAuthState({
           token: null,
           role: null,
@@ -89,7 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user: decoded.sub ?? null,
       })
     } catch {
-      localStorage.removeItem('access_token')
+      clearStoredAuth()
       setAuthState({
         token: null,
         role: null,
@@ -99,7 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const logout = useCallback(() => {
-    localStorage.removeItem('access_token')
+    clearStoredAuth()
     setAuthState({
       token: null,
       role: null,

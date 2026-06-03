@@ -56,10 +56,6 @@ async def run_seed() -> None:
     async with AsyncSessionLocal() as session:
         # === app.models.catalogos ===
         await seed_table(session, Rol, [
-            {"nombre": "administrador", "descripcion": "Administrador general del sistema"},
-            {"nombre": "docente", "descripcion": "Docente técnico del centro educativo"},
-            {"nombre": "tecnico", "descripcion": "Responsable de mantenimiento y calibración"},
-            {"nombre": "estudiante", "descripcion": "Usuario académico u operativo"},
             {"nombre": "invitado", "descripcion": "Usuario invitado"},
         ], ["nombre"])
 

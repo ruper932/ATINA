@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Path, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -30,35 +30,21 @@ async def crear_ticket(
 
 @router.get("", response_model=list[TicketMantenimientoRead])
 async def listar_tickets(
-    estado: str | None = Query(None),
-    tipo_recurso: str | None = Query(None),
-    reportante_ci: str | None = Query(None),
-    tecnico_ci: str | None = Query(None),
+    estado: EstadoTicketMantenimiento | None = Query(None),
+    tipo_recurso: TipoRecursoTicket | None = Query(None),
+    reportante_ci: str | None = Query(None, min_length=4, max_length=20, pattern=r"^[0-9]+[A-Za-z0-9-]*$"),
+    tecnico_ci: str | None = Query(None, min_length=4, max_length=20, pattern=r"^[0-9]+[A-Za-z0-9-]*$"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    estado_enum = None
-    if estado:
-        try:
-            estado_enum = EstadoTicketMantenimiento(estado)
-        except ValueError:
-            raise HTTPException(status_code=422, detail=f"Estado inválido: {estado}")
-            
-    tipo_enum = None
-    if tipo_recurso:
-        try:
-            tipo_enum = TipoRecursoTicket(tipo_recurso)
-        except ValueError:
-            raise HTTPException(status_code=422, detail=f"Tipo de recurso inválido: {tipo_recurso}")
-
     rows = await crud_tickets_mantenimiento.list(
         db,
-        estado=estado_enum,
-        tipo_recurso=tipo_enum,
-        reportante_ci=reportante_ci,
-        tecnico_ci=tecnico_ci,
+        estado=estado,
+        tipo_recurso=tipo_recurso,
+        reportante_ci=reportante_ci.strip() if reportante_ci else None,
+        tecnico_ci=tecnico_ci.strip() if tecnico_ci else None,
         skip=skip,
         limit=limit,
         current_user=current_user,
@@ -68,7 +54,7 @@ async def listar_tickets(
 
 @router.get("/{ticket_id}", response_model=TicketMantenimientoRead)
 async def obtener_ticket(
-    ticket_id: int,
+    ticket_id: int = Path(..., ge=1),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -77,8 +63,8 @@ async def obtener_ticket(
 
 @router.patch("/{ticket_id}/tomar", response_model=TicketMantenimientoRead)
 async def tomar_ticket(
-    ticket_id: int,
-    payload: TicketTomarRevision,
+    ticket_id: int = Path(..., ge=1),
+    payload: TicketTomarRevision = ...,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -89,8 +75,8 @@ async def tomar_ticket(
 
 @router.patch("/{ticket_id}/resolver", response_model=TicketMantenimientoRead)
 async def resolver_ticket(
-    ticket_id: int,
-    payload: TicketResolver,
+    ticket_id: int = Path(..., ge=1),
+    payload: TicketResolver = ...,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -101,8 +87,8 @@ async def resolver_ticket(
 
 @router.patch("/{ticket_id}/cancelar", response_model=TicketMantenimientoRead)
 async def cancelar_ticket(
-    ticket_id: int,
-    payload: TicketCancelar,
+    ticket_id: int = Path(..., ge=1),
+    payload: TicketCancelar = ...,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

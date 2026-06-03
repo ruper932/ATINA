@@ -417,7 +417,7 @@ export default function DashboardHome() {
 
   if (dashboardQuery.isLoading) {
     return (
-      <div className="space-y-8">
+      <div className="h-full space-y-8">
         <div className="flex h-64 items-center justify-center rounded-[28px] border border-border/70 bg-card">
           <div className="flex items-center gap-3 text-muted-foreground">
             <RefreshCw className="h-5 w-5 animate-spin" />
@@ -430,7 +430,7 @@ export default function DashboardHome() {
 
   if (dashboardQuery.isError || !data) {
     return (
-      <div className="space-y-6">
+      <div className="h-full space-y-6">
         <div className="rounded-[28px] border border-rose-200 bg-rose-50 p-6 dark:border-rose-900/30 dark:bg-rose-950/20">
           <h1 className="text-2xl font-bold text-rose-700 dark:text-rose-300">
             No se pudo cargar el dashboard
@@ -447,7 +447,7 @@ export default function DashboardHome() {
   }
 
   return (
-    <div className="min-h-full space-y-6 bg-background">
+    <div className="h-full space-y-6 bg-background">
       <section className="rounded-[28px] border border-border/70 bg-card px-6 py-6 md:px-8 md:py-8">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
           <div className="max-w-2xl">

@@ -16,6 +16,7 @@ import {
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Form,
   FormControl,
@@ -121,6 +122,7 @@ export function LoginModal({ children }: LoginModalProps) {
   const [tempToken, setTempToken] = useState<string | null>(null)
   const [otpMethod, setOtpMethod] = useState<TwoFactorMethod | null>(null)
   const [otpMessage, setOtpMessage] = useState<string | null>(null)
+  const [trustDevice, setTrustDevice] = useState(false)
 
   const lastSubmittedOtpRef = useRef<string | null>(null)
 
@@ -151,6 +153,7 @@ export function LoginModal({ children }: LoginModalProps) {
     setTempToken(null)
     setOtpMethod(null)
     setOtpMessage(null)
+    setTrustDevice(false)
     setIsLoading(false)
     setIsVerifyingOtp(false)
     lastSubmittedOtpRef.current = null
@@ -190,6 +193,7 @@ export function LoginModal({ children }: LoginModalProps) {
         setTempToken(payload.temp_token)
         setOtpMethod(payload.method)
         setOtpMessage(payload.message ?? 'Ingresa tu código de verificación.')
+        setTrustDevice(false)
         setOtpCode('')
         setApiError(null)
         lastSubmittedOtpRef.current = null
@@ -230,6 +234,7 @@ export function LoginModal({ children }: LoginModalProps) {
         temp_token: tempToken,
         code: normalizedCode,
         method: otpMethod,
+        trust_device: trustDevice,
       })
 
       const token = response.data?.access_token
@@ -267,13 +272,14 @@ export function LoginModal({ children }: LoginModalProps) {
 
     lastSubmittedOtpRef.current = otpCode
     void verifyOtp(otpCode)
-  }, [otpCode, tempToken, otpMethod, isVerifyingOtp])
+  }, [otpCode, tempToken, otpMethod, isVerifyingOtp, trustDevice])
 
   const resetToLogin = () => {
     setTempToken(null)
     setOtpMethod(null)
     setOtpMessage(null)
     setOtpCode('')
+    setTrustDevice(false)
     setApiError(null)
     lastSubmittedOtpRef.current = null
   }
@@ -395,6 +401,26 @@ export function LoginModal({ children }: LoginModalProps) {
                 <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
                   <LockKeyhole className="h-3.5 w-3.5" />
                   <span>Código de 6 dígitos</span>
+                </div>
+              </div>
+
+              <div className="flex items-start space-x-3 rounded-xl border p-4">
+                <Checkbox
+                  id="trust-device-modal"
+                  checked={trustDevice}
+                  onCheckedChange={(checked) => setTrustDevice(Boolean(checked))}
+                  disabled={isVerifyingOtp}
+                />
+                <div className="grid gap-1.5 leading-none">
+                  <label
+                    htmlFor="trust-device-modal"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Confiar en este dispositivo
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    No se solicitará el segundo factor nuevamente durante 30 días en este navegador.
+                  </p>
                 </div>
               </div>
 
