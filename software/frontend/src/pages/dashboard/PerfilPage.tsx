@@ -19,6 +19,7 @@ import {
   Mail,
   IdCard,
   Image as ImageIcon,
+  QrCode,
 } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 
@@ -229,6 +230,7 @@ export default function PerfilPage() {
   const [copiedSecret, setCopiedSecret] = useState(false)
   const [copiedUri, setCopiedUri] = useState(false)
   const [isTotpModalOpen, setIsTotpModalOpen] = useState(false)
+  const [isQrPreviewOpen, setIsQrPreviewOpen] = useState(false)
 
   const [showPerfilPassword, setShowPerfilPassword] = useState(false)
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
@@ -346,6 +348,7 @@ export default function PerfilPage() {
       setTotpError(null)
       setTotpSuccess('TOTP habilitado correctamente.')
       setIsTotpModalOpen(false)
+      setIsQrPreviewOpen(false)
     },
     onError: handleTotpError,
   })
@@ -384,6 +387,7 @@ export default function PerfilPage() {
     setEnableTotpForm(initialEnableTotpForm)
     setCopiedSecret(false)
     setCopiedUri(false)
+    setIsQrPreviewOpen(false)
     setIsTotpModalOpen(true)
     setupTotpMutation.mutate()
   }
@@ -391,6 +395,7 @@ export default function PerfilPage() {
   function closeTotpModal() {
     if (setupTotpMutation.isPending || enableTotpMutation.isPending) return
     setIsTotpModalOpen(false)
+    setIsQrPreviewOpen(false)
     setTotpError(null)
     setTotpSuccess(null)
     setTotpSetup(null)
@@ -548,8 +553,8 @@ export default function PerfilPage() {
   const phoneLabel = perfil?.telefono?.trim() ? perfil.telefono : 'No registrado'
   const cargoLabel = perfil?.cargo?.trim() ? perfil.cargo : 'No registrado'
   const bioLabel = perfil?.bio?.trim() ? perfil.bio : 'Sin biografía registrada'
-
   const isPerfilLoading = perfilQuery.isLoading
+
   const isDirty =
     !!perfil &&
     (perfilForm.email !== (perfil.email ?? '') ||
@@ -1181,10 +1186,31 @@ export default function PerfilPage() {
               </div>
             ) : (
               <div className="space-y-6">
-                <div className="grid gap-6 md:grid-cols-[220px_1fr]">
-                  <div className="flex items-center justify-center rounded-2xl border border-border/70 bg-background p-4">
-                    <QRCodeSVG value={totpSetup.uri} size={180} />
-                  </div>
+                <div className="grid gap-6 md:grid-cols-[240px_1fr]">
+                  <button
+                    type="button"
+                    onClick={() => setIsQrPreviewOpen(true)}
+                    className="group flex items-center justify-center rounded-2xl border border-border/70 bg-white p-5 shadow-sm transition hover:scale-[1.01] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                    aria-label="Ampliar código QR"
+                  >
+                    <div className="space-y-3">
+                      <div className="rounded-xl bg-white p-3">
+                        <QRCodeSVG
+                          value={totpSetup.uri}
+                          size={220}
+                          bgColor="#FFFFFF"
+                          fgColor="#000000"
+                          includeMargin
+                          level="M"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-center gap-2 text-xs text-slate-600">
+                        <QrCode className="h-4 w-4" />
+                        <span>Haz clic para ampliar el código QR</span>
+                      </div>
+                    </div>
+                  </button>
 
                   <div className="space-y-4">
                     <div>
@@ -1270,6 +1296,43 @@ export default function PerfilPage() {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isQrPreviewOpen} onOpenChange={setIsQrPreviewOpen}>
+        <DialogContent className="border-border/70 bg-background sm:max-w-[620px]">
+          <DialogHeader>
+            <DialogTitle>Código QR de autenticación</DialogTitle>
+            <DialogDescription>
+              Escanea este código con tu aplicación autenticadora. Usa esta vista ampliada si el lector no detecta bien el QR en el tamaño normal.
+            </DialogDescription>
+          </DialogHeader>
+
+          {totpSetup && (
+            <div className="flex justify-center">
+              <div className="rounded-3xl border border-border/70 bg-white p-6 shadow-sm">
+                <QRCodeSVG
+                  value={totpSetup.uri}
+                  size={360}
+                  bgColor="#FFFFFF"
+                  fgColor="#000000"
+                  includeMargin
+                  level="M"
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              className="border-border/70"
+              onClick={() => setIsQrPreviewOpen(false)}
+            >
+              Cerrar
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
