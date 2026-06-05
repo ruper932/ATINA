@@ -1,9 +1,6 @@
 ================================================================================
                     ATINA - SISTEMA DE GESTION HIDRICA
-            Backend FastAPI + Frontend React / TypeScript
-================================================================================
-
-DESCRIPCION
+                  BACKEND FASTAPI + FRONTEND REACT
 ================================================================================
 
 ATINA es una plataforma integral para la gestion de recursos hidricos,
@@ -14,282 +11,304 @@ acceso por roles (RBAC), monitoreo IoT de dispositivos, sensores y actuadores,
 gestion de solicitudes de reubicacion de recursos, tickets de mantenimiento,
 alertas, reportes y visualizacion de datos.
 
-El proyecto se compone de dos modulos principales:
-
-  - API: Backend desarrollado con FastAPI (Python 3.11+), usando SQLAlchemy,
-    PostgreSQL, Alembic para migraciones, y seguridad avanzada.
-
-  - Frontend: Aplicacion SPA construida con React 18, TypeScript, Vite,
-    TailwindCSS, Shadcn/ui y React Query para la gestion de estado y
-    comunicacion con la API.
+El proyecto se compone de dos modulos principales: API (backend) y Frontend.
 
 ================================================================================
 ESTRUCTURA DEL PROYECTO
 ================================================================================
 
-.
-├── API/                                 # Backend FastAPI
-│   ├── alembic/                         # Migraciones de base de datos
-│   │   ├── env.py
-│   │   ├── script.py.mako
-│   │   └── versions/                    # Archivos de migracion (31+)
-│   ├── app/                             # Codigo fuente de la API
-│   │   ├── api/                         # Rutas y dependencias
-│   │   │   ├── deps.py
-│   │   │   └── routes/                  # Endpoints por modulo
-│   │   ├── core/                        # Configuracion, seguridad, DB
-│   │   ├── crud/                        # Operaciones CRUD por entidad
-│   │   ├── db/                          # Inicializacion y seed de datos
-│   │   ├── models/                      # Modelos SQLAlchemy (15+)
-│   │   ├── schemas/                     # Schemas Pydantic
-│   │   ├── services/                    # Logica de negocio especifica
-│   │   └── main.py
-│   ├── context/                         # Documentacion de reglas de negocio
-│   ├── db/                              # Diagramas PlantUML y backups SQL
-│   ├── docker/                          # Scripts de entrada
-│   ├── uploads/profile_photos/          # Archivos subidos
-│   ├── .env.example
-│   ├── alembic.ini
-│   ├── docker-compose.backend.yml
-│   ├── Dockerfile
-│   ├── README.md
-│   └── requirements.txt
-│
-└── frontend/                            # Frontend React
-    ├── public/                          # Archivos estaticos
-    │   ├── atina-logo.svg
-    │   ├── favicon.svg
-    │   └── icons.svg
-    ├── src/                             # Codigo fuente
-    │   ├── components/                  # Componentes reutilizables
-    │   │   ├── ui/                      # Componentes base de shadcn
-    │   │   ├── auth/                    # Componentes de autenticacion
-    │   │   └── dashboard/               # Layout y sidebar
-    │   ├── config/                      # Configuraciones (rutas)
-    │   ├── context/                     # Contextos React (AuthContext)
-    │   ├── hooks/                       # Hooks personalizados
-    │   ├── lib/                         # Utilidades (axios, helpers)
-    │   ├── pages/                       # Paginas de la aplicacion
-    │   │   ├── dashboard/               # Vistas de administracion (14+)
-    │   │   ├── LoginScreen.tsx
-    │   │   ├── RegisterScreen.tsx
-    │   │   └── WelcomeScreen.tsx
-    │   ├── services/                    # Servicios API (15 servicios)
-    │   ├── types/                       # Definiciones TypeScript (12+)
-    │   ├── App.tsx
-    │   ├── main.tsx
-    │   └── index.css
-    ├── .env.example
-    ├── components.json                  # Configuracion de shadcn/ui
-    ├── docker-compose.frontend.yml
-    ├── Dockerfile
-    ├── nginx.conf
-    ├── package.json
-    ├── tailwind.config.js
-    ├── tsconfig.json
-    ├── vite.config.ts
-    └── README.md
+El repositorio esta organizado de manera modular separando el backend
+FastAPI del frontend React, cada uno con su propia infraestructura Docker.
+
+    .
+    ├── API/                       # Backend FastAPI
+    │   ├── alembic/               # Migraciones de base de datos
+    │   │   └── versions/          # Archivos de migracion (31+)
+    │   ├── app/                   # Codigo fuente de la API
+    │   │   ├── api/routes/        # Endpoints (auth, users, solicitudes, etc.)
+    │   │   ├── core/              # Configuracion, seguridad, base de datos
+    │   │   ├── crud/              # Operaciones CRUD por entidad
+    │   │   ├── db/                # Inicializacion y seed de datos
+    │   │   ├── models/            # Modelos SQLAlchemy (15+ modelos)
+    │   │   ├── schemas/           # Schemas Pydantic para validacion
+    │   │   └── services/          # Logica de negocio especifica
+    │   ├── context/               # Documentacion de reglas de negocio
+    │   ├── db/                    # Diagramas PlantUML y backups SQL
+    │   ├── docker/                # Scripts de entrada para contenedores
+    │   ├── uploads/profile_photos/# Archivos subidos (fotos de perfil)
+    │   ├── .env.example
+    │   ├── alembic.ini
+    │   ├── docker-compose.backend.yml
+    │   ├── Dockerfile
+    │   ├── requirements.txt
+    │   └── README.md
+    │
+    └── frontend/                  # Frontend React
+        ├── public/                # Archivos estaticos (logos, favicon)
+        ├── src/                   # Codigo fuente
+        │   ├── components/        # Componentes reutilizables (UI, auth, dashboard)
+        │   │   └── ui/            # Componentes base de shadcn
+        │   ├── config/            # Configuraciones (rutas de navegacion)
+        │   ├── context/           # Contextos de React (AuthContext)
+        │   ├── hooks/             # Hooks personalizados
+        │   ├── lib/               # Utilidades (axios, helpers)
+        │   ├── pages/             # Paginas de la aplicacion
+        │   │   └── dashboard/     # Vistas de administracion (14+ modulos)
+        │   ├── services/          # Servicios de comunicacion con API (15)
+        │   └── types/             # Definiciones TypeScript (12+)
+        ├── .env.example
+        ├── components.json        # Configuracion de shadcn/ui
+        ├── docker-compose.frontend.yml
+        ├── Dockerfile
+        ├── nginx.conf
+        ├── package.json
+        ├── tailwind.config.js
+        ├── tsconfig.json
+        ├── vite.config.ts
+        └── README.md
 
 ================================================================================
-TECNOLOGIAS UTILIZADAS
+STACK TECNOLOGICO
 ================================================================================
 
 Backend (API)
 --------------------------------------------------------------------------------
-  - Python 3.11+
-  - FastAPI 0.136.1
-  - SQLAlchemy 2.0.49 (ORM)
-  - Alembic 1.18.4 (Migraciones)
-  - asyncpg / psycopg (PostgreSQL)
-  - Pydantic 2.13.3 + pydantic-settings
-  - python-jose (JWT)
-  - bcrypt 5.0.0 (Hash de contrasenas)
-  - pyotp 2.9.0 (2FA - TOTP)
-  - python-multipart (Subida de archivos)
-  - Pillow 12.2.0 (Procesamiento de imagenes)
-  - slowapi / limits (Rate limiting)
-  - gunicorn + uvicorn (Servidor ASGI)
+    Framework:    FastAPI 0.136.1 (Python 3.11+)
+    ORM:          SQLAlchemy 2.0.49 / Alembic 1.18.4
+    Base de Datos: PostgreSQL 15
+    Seguridad:    JWT (python-jose), bcrypt 5.0.0, pyotp 2.9.0 (2FA)
+    Servidor:     uvicorn + gunicorn
 
 Frontend
 --------------------------------------------------------------------------------
-  - React 18.2.5
-  - TypeScript 6.0.2
-  - Vite 8.0.10
-  - TanStack React Query 5.100.11
-  - React Router DOM 7.15.0
-  - TailwindCSS 3.4.19
-  - Shadcn/ui (Componentes)
-  - Lucide React (Iconos)
-  - Axios 1.16.1
-  - React Hook Form 7.75.0 + Zod 4.4.3
-  - Recharts 3.8.1 (Graficos)
-  - jspdf, exceljs, papaparse (Exportacion)
+    Framework:    React 18.2.5 / TypeScript 6.0.2
+    Build:        Vite 8.0.10
+    Estilos:      TailwindCSS 3.4.19 / Shadcn/ui
+    Estado:       TanStack React Query 5.100.11
+    Routing:      React Router DOM 7.15.0
+    Formularios:  React Hook Form 7.75.0 + Zod 4.4.3
+    Graficos:     Recharts 3.8.1
+    Exportacion:  jspdf, exceljs, papaparse
 
 Infraestructura
 --------------------------------------------------------------------------------
-  - Docker + Docker Compose
-  - Nginx (Servir frontend y proxy inverso)
-  - PostgreSQL 15 (Base de datos)
+    Contenedores: Docker + Docker Compose
+    Proxy:        Nginx (frontend) + Nginx Proxy Manager (opcional)
+    Tunnel:       Cloudflare Zero Trust (opcional)
 
 ================================================================================
-REQUISITOS PREVIOS
+ARQUITECTURA DE DESPLIEGUE (DOCKER)
 ================================================================================
 
-  - Docker y Docker Compose instalados (recomendado)
-  - O en su defecto:
-      * Python 3.11+ y pip
-      * Node.js 20+ y npm
-      * PostgreSQL 15 en ejecucion
-  - Git
+El sistema en produccion corre unificado detras de un unico dominio expuesto
+mediante un Tunel de Cloudflare y enrutado por Nginx Proxy Manager (NPM).
+Toda la comunicacion entre el navegador y la API es relativa (/api/v1),
+eliminando problemas de CORS de raiz.
+
+Requisitos Previos
+--------------------------------------------------------------------------------
+    - Docker y Docker Compose instalados en el servidor host
+    - Nginx Proxy Manager corriendo y configurado (opcional)
+    - Un tunel activo en Cloudflare Zero Trust apuntando al puerto 80 de NPM
+
+Despliegue del Backend
+--------------------------------------------------------------------------------
+    Navegar al directorio de la API:
+
+    cd API
+
+    Configurar archivo .env local.
+
+    Construir y levantar los servicios (API + Postgres):
+
+    docker compose -f docker-compose.backend.yml up -d --build
+
+    Aplicar migraciones de Alembic e inyectar datos semilla:
+
+    docker exec -it atina_backend_prod alembic upgrade head
+    docker exec -it atina_backend_prod python -m app.db.seed
+
+Despliegue del Frontend
+--------------------------------------------------------------------------------
+    Navegar al directorio del Frontend:
+
+    cd frontend
+
+    Configurar archivo .env local (VITE_API_BASE_URL=http://localhost:8000)
+
+    Recompilar e inyectar la URL relativa de la API:
+
+    docker compose -f docker-compose.frontend.yml up -d --build --no-cache
+
+Configuracion en Nginx Proxy Manager (NPM) - Opcional
+--------------------------------------------------------------------------------
+    Crear un Proxy Host para atina.tudominio.com apuntando al contenedor
+    Frontend (puerto 8080) e incluir una Custom Location para redirigir el
+    trafico de la API:
+
+    Ruta: /api/v1 -> Forward Host/IP: IP_DEL_SERVIDOR -> Forward Port: 8000
+
+Acceso a la aplicacion
+--------------------------------------------------------------------------------
+    - Frontend: http://localhost:8080
+    - API Docs: http://localhost:8000/docs (Swagger UI)
+    - API Redoc: http://localhost:8000/redoc
 
 ================================================================================
-INSTALACION Y DESPLIEGUE CON DOCKER (RECOMENDADO)
+COMPONENTES PRINCIPALES
 ================================================================================
 
-1. Clonar el repositorio
+Autenticacion y Usuarios (/api/v1/auth, /api/v1/admin)
+--------------------------------------------------------------------------------
+    Registro:           Validacion de CI, email, username con verificacion de
+                        fortaleza de contrasena y subida de foto de perfil.
 
-   git clone https://github.com/tu-usuario/atina.git
-   cd atina
+    Login:              Autenticacion con JWT, soporte para 2FA (TOTP) y
+                        dispositivos de confianza (cookie segura).
 
-2. Configurar variables de entorno
+    Seguridad:          Bloqueo temporal por intentos fallidos (3 fallos -> 2min),
+                        rate limiting (5 intentos/minuto).
 
-   cd API
-   cp .env.example .env
-   # Editar .env con tus valores
+    Roles:              RBAC con roles: admin, tecnico, docente, estudiante.
 
-   cd ../frontend
-   cp .env.example .env
-   # Editar .env con la URL de la API (http://localhost:8000)
+Infraestructura y Recursos (/api/v1/infra, /api/v1/iot)
+--------------------------------------------------------------------------------
+    Ubicaciones:        Gestion jerarquica de ubicaciones (pais, region, sitio).
 
-3. Levantar los servicios
+    Invernaderos:       Registro de invernaderos con area, prioridad de riego.
 
-   # Backend
-   cd API
-   docker compose -f docker-compose.backend.yml up -d --build
+    Atrapanieblas:      Captadores de niebla con codigo, area de malla,
+                        orientacion y estado.
 
-   # Frontend
-   cd ../frontend
-   docker compose -f docker-compose.frontend.yml up -d --build
+    Fuentes de Agua:    Fuentes con tipo, capacidad (litros) y estado.
 
-4. Aplicar migraciones y seeds
+    IoT:                Dispositivos, sensores y actuadores con estado,
+                        firmware y mediciones.
 
-   docker exec -it atina_backend_prod alembic upgrade head
-   docker exec -it atina_backend_prod python -m app.db.seed
+Solicitudes de Reubicacion (/api/v1/solicitudes)
+--------------------------------------------------------------------------------
+    Flujo:              pendiente -> en_revision -> aprobada / rechazada / cancelada.
 
-5. Acceder a la aplicacion
+    Caracteristicas:    Historial de cambios, comentarios, documentos PDF
+                        adjuntos, control por roles (docentes crean, tecnicos
+                        resuelven).
 
-   - Frontend: http://localhost:8080
-   - API docs: http://localhost:8000/docs
+Tickets de Mantenimiento (/api/v1/tickets)
+--------------------------------------------------------------------------------
+    Reporte:            Usuarios reportan fallas en dispositivos, sensores o
+                        actuadores.
+
+    Estados:            pendiente, en_revision, terminado, cancelado.
+
+    Resultados:         danado (requiere reemplazo), mantenimiento (reparado),
+                        sin_falla.
+
+Alertas y Umbrales (/api/v1/alertas, /api/v1/umbrales)
+--------------------------------------------------------------------------------
+    Alertas:            Generacion automatica por condiciones anómalas,
+                        notificaciones asociadas.
+
+    Umbrales:           Configuracion de parametros y valores limite para
+                        generacion de alertas.
+
+Machine Learning (/api/v1/ml) --- En Desarrollo ---
+--------------------------------------------------------------------------------
+    Modelos:            Registro y versionado de modelos ML.
+
+    Predicciones:       Volumen de agua captable por atrapanieblas.
+
+    Simulaciones:       Escenarios hidricos para planificacion agricola.
+
+Riego (/api/v1/riego)
+--------------------------------------------------------------------------------
+    Decisiones:         Registro de decisiones automaticas/manuales de riego.
+
+    Eventos:            Ejecucion de riego con duracion y volumen.
+
+    Estado Actual:      Estado actual del sistema de riego por invernadero.
+
+Reportes (/api/v1/reportes)
+--------------------------------------------------------------------------------
+    Vistas:             Lecturas de sensores, alertas por invernadero,
+                        inventario de dispositivos, riego ejecutado,
+                        predicciones de agua.
+
+    Exportacion:        CSV, Excel, PDF (implementado en frontend).
 
 ================================================================================
-PRINCIPALES MODULOS DEL SISTEMA
+SEGURIDAD Y CONTROL DE ACCESO
 ================================================================================
 
-Autenticacion y Usuarios
---------------------------------------------------------------------------------
-  - Registro con verificacion de email, CI, username.
-  - Login con JWT (access token).
-  - 2FA con TOTP y dispositivos de confianza.
-  - Bloqueo por intentos fallidos (3 intentos -> 2 min).
-  - Roles: admin, tecnico, docente, estudiante (RBAC).
-  - Perfil de usuario con foto y datos personales.
+    Autenticacion:      Implementacion de flujos JWT seguros (access_token).
 
-Infraestructura y Recursos
---------------------------------------------------------------------------------
-  - Ubicaciones jerarquicas.
-  - Invernaderos: area, prioridad de riego, estado.
-  - Atrapanieblas: codigo, area de malla, orientacion.
-  - Fuentes de agua: tipo, capacidad, estado.
-  - Dispositivos IoT, Sensores, Actuadores.
+    Seguridad Avanzada: Verificacion en dos pasos (2FA - TOTP), bloqueo
+                        preventivo por intentos fallidos (Login Lockout),
+                        dispositivos de confianza con cookie segura.
 
-Solicitudes de Reubicacion
---------------------------------------------------------------------------------
-  - Flujo: pendiente -> en_revision -> aprobada/rechazada/cancelada.
-  - Historial de cambios y documentos adjuntos.
+    Proteccion API:     Rate limiting por endpoint, validacion de entrada,
+                        proteccion contra timing attacks en login.
 
-Tickets de Mantenimiento
---------------------------------------------------------------------------------
-  - Estados: pendiente, en_revision, terminado, cancelado.
-  - Resultados: danado, mantenimiento, sin_falla.
-  - Historial de acciones.
+    Roles:              Control de acceso basado en Roles (RBAC) gestionado
+                        desde los modulos del Frontend.
 
-Alertas y Umbrales
---------------------------------------------------------------------------------
-  - Alertas por condiciones anómalas.
-  - Configuracion de umbrales por parametro.
-
-Machine Learning
---------------------------------------------------------------------------------
-  - Modelos de captacion de agua.
-  - Control de riego predictivo.
-  - Simulacion de escenarios hidricos.
-
-Reportes y Exportacion
---------------------------------------------------------------------------------
-  - Vistas predefinidas.
-  - Exportacion a CSV, Excel, PDF.
+    Subida de Archivos: Validacion de tipo, tamano (max 5MB) y contenido real
+                        de imagenes (Pillow).
 
 ================================================================================
 VARIABLES DE ENTORNO
 ================================================================================
 
-Backend (.env)
+Backend (API/.env)
 --------------------------------------------------------------------------------
-  DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/atina
-  SECRET_KEY=...                         (clave para JWT)
-  ALGORITHM=HS256
-  ACCESS_TOKEN_EXPIRE_MINUTES=30
-  TOTP_ISSUER=ATINA
-  COOKIE_SECURE=false
-  COOKIE_SAMESITE=lax
-  RATE_LIMIT_DEFAULT=100/minute
+    DATABASE_URL=postgresql+asyncpg://user:pass@db:5432/atina
+    SECRET_KEY=...                         # Clave para JWT (generar una segura)
+    ALGORITHM=HS256
+    ACCESS_TOKEN_EXPIRE_MINUTES=30
+    TOTP_ISSUER=ATINA
+    COOKIE_SECURE=false                    # true en produccion con HTTPS
+    COOKIE_SAMESITE=lax
+    RATE_LIMIT_DEFAULT=100/minute
 
-Frontend (.env)
+Frontend (frontend/.env)
 --------------------------------------------------------------------------------
-  VITE_API_BASE_URL=http://localhost:8000
-  VITE_APP_NAME=ATINA
-
-================================================================================
-SEGURIDAD
-================================================================================
-
-  - Contrasenas hasheadas con bcrypt (costo 12).
-  - Tokens JWT firmados con HS256.
-  - 2FA con TOTP (RFC 6238).
-  - Dispositivos de confianza (cookie segura).
-  - Rate limiting (5 intentos/minuto en login/register).
-  - Bloqueo temporal tras 3 fallos.
-  - Validacion de fortaleza de contrasena.
-  - Upload de imagenes con verificacion de tipo y tamano.
-  - Control de acceso por roles (RBAC).
+    VITE_API_BASE_URL=http://localhost:8000
+    VITE_APP_NAME=ATINA
 
 ================================================================================
 PRUEBAS Y MANTENIMIENTO
 ================================================================================
 
-Migraciones
+Migraciones (Alembic)
 --------------------------------------------------------------------------------
+    Generar nueva migracion:
 
-  # Generar nueva migracion
-  cd API
-  alembic revision --autogenerate -m "descripcion"
+    cd API
+    alembic revision --autogenerate -m "descripcion_de_cambio"
 
-  # Aplicar migraciones
-  alembic upgrade head
+    Aplicar migraciones:
 
-  # Revertir ultima migracion
-  alembic downgrade -1
+    alembic upgrade head
 
-Semilla de datos
+    Revertir ultima migracion:
+
+    alembic downgrade -1
+
+Semilla de datos (Seed)
 --------------------------------------------------------------------------------
+    docker exec -it atina_backend_prod python -m app.db.seed
 
-  docker exec -it atina_backend_prod python -m app.db.seed
+    Este comando carga datos iniciales como roles, estados, catalogos y
+    usuarios de prueba.
 
 Logs
 --------------------------------------------------------------------------------
+    Ver logs del backend:
 
-  docker logs atina_backend_prod
-  docker logs atina_frontend_prod
+    docker logs atina_backend_prod
+
+    Ver logs del frontend:
+
+    docker logs atina_frontend_prod
 
 ================================================================================
 LICENCIA
@@ -298,17 +317,15 @@ LICENCIA
 Este proyecto esta licenciado bajo los terminos de la Licencia MIT.
 Copyright (c) 2026 Limber Ignacio Romero Urrelo.
 
+Se concede permiso, de forma gratuita, a cualquier persona que obtenga una
+copia de este software y los archivos de documentacion asociados, para
+comerciar con el Software sin restriccion, incluidos los derechos de uso,
+copia, modificacion, fusion, publicacion, distribucion, sublicencia y/o venta
+de copias del Software.
+
 EL SOFTWARE SE SUMINISTRA "TAL CUAL", SIN GARANTIA DE NINGUN TIPO, EXPRESA O
 IMPLICITA.
 
 Para mas informacion, consulte el archivo LICENSE en la raiz del repositorio.
-
-================================================================================
-CONTACTO
-================================================================================
-
-  - Autor: Limber Ignacio Romero Urrelo
-  - Proyecto: ATINA - Sistema de Gestion Hidrica
-  - Documentacion adicional: /docs en el repositorio
 
 ================================================================================
