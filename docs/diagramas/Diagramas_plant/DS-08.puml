@@ -1,0 +1,32 @@
+@startuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam responseMessageBelowArrow true
+
+title Diagrama de Secuencia: Gestión de cuentas
+
+actor "Administrador" as A
+participant "InterfazSistema" as I
+participant "SistemaBackend" as B
+
+A -> I : Seleccionar acción (Crear/Editar/Desactivar/Eliminar)
+activate I
+
+I -> B : Validar información()
+activate B
+B --> I : Resultado validación
+deactivate B
+
+alt Validación exitosa
+    I -> B : Ejecutar acción()
+    activate B
+    B --> I : Confirmación de operación
+    deactivate B
+    I --> A : Mostrar mensaje de éxito
+else Validación fallida
+    I --> A : Mostrar error de validación
+end
+
+deactivate I
+
+@enduml

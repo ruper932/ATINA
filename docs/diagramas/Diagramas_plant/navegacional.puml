@@ -1,0 +1,60 @@
+@startuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam rectangle {
+    BackgroundColor white
+    BorderColor black
+}
+
+title Mapa Navegacional - Sistema ATINA
+
+[WelcomeScreen] as Welcome
+
+rectangle "Autenticación" {
+    [LoginScreen] as Login
+    [RegisterScreen] as Register
+}
+
+rectangle "Dashboard Privado" {
+    [DashboardHome] as Home
+    
+    rectangle "Módulos de Infraestructura" {
+        [Fuentes de Agua]
+        [Atrapanieblas]
+        [Invernaderos]
+        [Sensores]
+        [Dispositivos]
+        [Ubicaciones]
+    }
+    
+    rectangle "Gestión y Administración" {
+        [Usuarios]
+        [Roles]
+        [Solicitudes]
+        [Tickets de Mant.]
+    }
+    
+    rectangle "Análisis y Cuenta" {
+        [Reportes]
+        [Perfil]
+    }
+}
+
+' Flujo de navegación
+Welcome --> Login
+Welcome --> Register
+Login --> Home
+Home --> [Fuentes de Agua]
+Home --> [Atrapanieblas]
+Home --> [Invernaderos]
+Home --> [Sensores]
+Home --> [Dispositivos]
+Home --> [Ubicaciones]
+Home --> [Usuarios]
+Home --> [Roles]
+Home --> [Solicitudes]
+Home --> [Tickets de Mant.]
+Home --> [Reportes]
+Home --> [Perfil]
+
+@enduml

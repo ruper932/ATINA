@@ -1,0 +1,29 @@
+@startuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam responseMessageBelowArrow true
+
+title Diagrama de Secuencia: Transmisión de datos
+
+actor "Esp32" as E
+participant "Servidor MCP" as S
+participant "SistemaBackend" as B
+
+E -> S : Preparar y transmitir datos()
+activate S
+
+S -> S : Validar formato MCP()
+
+alt Formato válido
+    S -> B : Registrar recepción()
+    activate B
+    B --> S : Confirmación
+    deactivate B
+    S --> E : Transmisión exitosa
+else Formato inválido
+    S --> E : Error de formato
+end
+
+deactivate S
+
+@enduml

@@ -1,0 +1,112 @@
+@startuml
+' ------------------------------------------------------------------
+' Diagrama de Secuencia: Administración del Sistema de Seguridad
+' Basado en el diagrama de casos de uso CS-02
+' ------------------------------------------------------------------
+title Diagrama de Secuencia - Autenticación y Gestión (Administrador)
+
+actor Administrador as Admin
+actor Técnico as Tecnico
+
+participant "Interfaz de\nAcceso" as UI
+participant "Controlador de\nAutenticación" as Auth
+participant "Gestor de\nConfiguración" as ConfigMgr
+database "Directorio de\nUsuarios" as UserDB
+database "Repositorio de\nConfiguración" as ConfigDB
+
+== Autenticación del Administrador ==
+
+Admin -> UI: Ingresar credenciales (admin, pass)
+activate UI
+
+UI -> Auth: autenticar(credenciales)
+activate Auth
+
+ref over Auth, UserDB
+  :Validar credenciales:
+  <<include>>
+end ref
+
+Auth -> UserDB: validar(usuario, contraseña)
+activate UserDB
+UserDB --> Auth: resultado (válido)
+deactivate UserDB
+
+alt Credenciales correctas
+
+    Auth -> ConfigMgr: inicializarConfiguracion(admin)
+    activate ConfigMgr
+
+    ' Incluye los tres casos de configuración del inicio de sesión
+    ConfigMgr -> ConfigDB: obtenerTratamiento()
+    activate ConfigDB
+    ConfigDB --> ConfigMgr: parametrosTratamiento
+    deactivate ConfigDB
+    note right of ConfigMgr : Configurar Tratamiento
+
+    ConfigMgr -> ConfigDB: obtenerUbicaciones()
+    activate ConfigDB
+    ConfigDB --> ConfigMgr: listaUbicaciones
+    deactivate ConfigDB
+    note right of ConfigMgr : Configurar Ubicaciones
+
+    ConfigMgr -> ConfigDB: obtenerNodosESP32()
+    activate ConfigDB
+    ConfigDB --> ConfigMgr: configNodos
+    deactivate ConfigDB
+    note right of ConfigMgr : Configurar nodos ESP32
+
+    ConfigMgr --> Auth: configuracionAplicada
+    deactivate ConfigMgr
+
+    Auth --> UI: autenticacionExitosa(token)
+    UI --> Admin: Mostrar panel principal
+
+else Credenciales incorrectas
+    Auth --> UI: error("Credenciales inválidas")
+    UI --> Admin: Mostrar mensaje de error
+end
+
+deactivate Auth
+deactivate UI
+
+== Gestión de Usuarios (solo Administrador) ==
+
+Admin -> UI: Solicitar gestión de usuarios
+activate UI
+UI -> Auth: verificarPermisos(admin, "gestionUsuarios")
+activate Auth
+Auth --> UI: autorizado
+deactivate Auth
+
+UI -> ConfigMgr: configurarUsuarios(admin, datosUsuario)
+activate ConfigMgr
+
+ref over ConfigMgr, UserDB
+  :Configurar Usuarios:
+  <<include>>
+end ref
+
+ConfigMgr -> UserDB: actualizarUsuario(usuario, rol, permisos)
+activate UserDB
+UserDB --> ConfigMgr: usuarioActualizado
+deactivate UserDB
+
+ConfigMgr --> UI: operacionExitosa
+UI --> Admin: Confirmación
+deactivate ConfigMgr
+deactivate UI
+
+' El Técnico no tiene permisos de gestión (se puede mostrar un intento fallido)
+== Intento de gestión por Técnico (flujo alternativo) ==
+
+Tecnico -> UI: Intentar gestionar usuarios
+activate UI
+UI -> Auth: verificarPermisos(tecnico, "gestionUsuarios")
+activate Auth
+Auth --> UI: noAutorizado
+deactivate Auth
+UI --> Tecnico: Acceso denegado
+deactivate UI
+
+@enduml

@@ -1,0 +1,43 @@
+@startuml
+skinparam style strictuml
+skinparam participantPadding 10
+skinparam boxPadding 10
+
+title Diagrama de Secuencia: Captura de datos atmosféricos
+
+actor "Sensores" as S
+participant "ESP32" as E
+box "Sistema de Captura" #LightBlue
+    participant "GestorLecturas" as G
+    participant "Validador" as V
+    database "BaseDatos" as DB
+end box
+
+activate S
+S -> E : Enviar lecturas ambientales
+activate E
+
+E -> G : Procesar lecturas()
+activate G
+
+G -> V : Validar integridad(lectura)
+activate V
+V --> G : Resultado validación
+deactivate V
+
+alt Lectura válida
+    G -> DB : Registrar datos atmosféricos
+    activate DB
+    DB --> G : Confirmación de registro
+    deactivate DB
+    G --> E : Retorno: Éxito
+else Lectura inválida
+    G --> E : Retorno: Error de integridad
+end
+
+deactivate G
+E --> S : Confirmar recepción/estado
+deactivate E
+deactivate S
+
+@enduml

@@ -1,0 +1,113 @@
+@startuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam linetype ortho
+skinparam packageStyle rectangle
+skinparam defaultFontName "Arial"
+
+title Diagrama de Arquitectura de Componentes Mapeado a Directorios Reales - Sistema ATINA
+
+' ==========================================
+' CAPA DE PRESENTACIÓN (FRONTEND)
+' ==========================================
+package "Capa de Presentación (frontend/src)" as FE {
+    package "pages/dashboard (Vistas del Sistema)" as FEPages {
+        [Dashboard Principal\n(DashboardHome.tsx)] as FE_Home
+        [Panel Atrapanieblas & Gemelo Digital\n(AtrapanieblasPage.tsx / ML3)] as FE_ML_Views
+        [Módulo de Reportes Vistas\n(ReportesVistasPage.tsx)] as FE_Rep
+        [Módulo de Administración\n(UsuariosPage.tsx / RolesPage.tsx)] as FE_Admin
+    }
+    
+    package "services & context (Lógica de Interfaz)" as FE_Logic {
+        [Servicios de API de Red\n(*.service.ts / axios.ts)] as FE_Services
+        [Contexto de Autenticación\n(AuthContext.tsx)] as FE_AuthCtx
+    }
+}
+
+' ==========================================
+' CAPA DE INTEROPERABILIDAD & BORDE (IoT)
+' ==========================================
+package "Capa de Interoperabilidad (MCP)" as CapaMCP {
+    [Servidor MCP Local\n(FastMCP / Python)] as ServidorMCP
+}
+
+package "Capa Física y de Borde (IoT)" as CapaIoT {
+    package "Firmware Node (ESP32)" as Hardware {
+        [ML2: Control de Riego Edge\n(Lógica local en ESP32)] as Edge_ML2
+        [Controladores de Hardware\n(BME680 Clima / Caudalímetro)] as HW_Drivers
+    }
+}
+
+' ==========================================
+' CAPA DE LÓGICA DE NEGOCIO (BACKEND)
+' ==========================================
+package "Capa Backend (API/app)" as BE {
+    package "api/routes (Endpoints REST)" as BERoutes {
+        [Módulo Analítico\n(ml.py / ML1 & ML3)] as R_ML
+        [Core de Negocio\n(auth.py, riego.py, alertas.py)] as R_Core
+        [Gestión de Infraestructura\n(invernaderos.py, dispositivos.py)] as R_Infra
+    }
+    
+    package "crud (Control de Acceso a Datos)" as BECrud {
+        [CRUD Machine Learning\n(crud_ml.py)] as C_ML
+        [CRUD Core Operativo\n(crud_riego.py, crud_alertas.py)] as C_Core
+    }
+    
+    package "models & schemas (Entidades y Contratos)" as BEEntities {
+        [Modelos ORM SQLAlchemy\n(ml.py, user.py, riego.py)] as M_ORM
+        [Esquemas de Validación Pydantic\n(ml.py, user.py, alertas.py)] as S_Pydantic
+    }
+}
+
+' ==========================================
+' CAPA DE PERSISTENCIA
+' ==========================================
+package "Capa de Persistencia & Ciclo de Vida" as Persistencia {
+    package "API/alembic (Migraciones)" as Alembic {
+        [Historial de Versiones\n(versions/ *.py)] as MigraScripts
+    }
+    database "PostgreSQL\n(atina_db)" as DB
+}
+
+' ==========================================
+' ALINEACIÓN JERÁRQUICA DE CAPAS (ORDEN)
+' ==========================================
+FE -down-> CapaMCP
+CapaIoT -right-> CapaMCP
+CapaMCP -down-> BE
+BE -down-> Persistencia
+
+' ==========================================
+' FLUJOS DE DATOS Y DEPENDENCIAS ORTOGONALES
+' ==========================================
+
+' Flujos desde el Frontend hacia la lógica interna e Interoperabilidad
+FE_Home --> FE_Services : <<use>>
+FE_ML_Views --> FE_Services : <<use>>
+FE_ML_Views ..> ServidorMCP : <<access>>\nConsulta métricas de simulación\ne introduce variables
+
+FE_Services -down-> R_ML : <<HTTP REST>>\n(Inferencia ML1 / Simulación ML3)
+FE_Services -down-> R_Core : <<HTTP REST>>\n(Transacciones operativas)
+FE_Services -down-> R_Infra : <<HTTP REST>>
+
+' Flujos de Hardware y Edge mediante el bus MCP
+HW_Drivers -up-> Edge_ML2 : <<read>>
+Edge_ML2 ==> ServidorMCP : <<transmit>>\nEnvía lecturas climáticas\ny telemetría de riego (ML2)
+ServidorMCP --> R_ML : <<use>>\nOrquestación y sincronización local
+
+' Flujos internos dentro de FastAPI (Arquitectura Limpia)
+R_ML -down-> C_ML : <<delegate>>
+R_Core -down-> C_Core : <<delegate>>
+R_Infra -down-> C_Core : <<delegate>>
+
+R_ML .right.> S_Pydantic : <<validate>>
+R_Core .right.> S_Pydantic : <<validate>>
+
+C_ML -down-> M_ORM : <<hydrate>>
+C_Core -down-> M_ORM : <<hydrate>>
+
+' Persistencia a Base de Datos
+M_ORM ---> DB : <<read/write>>
+MigraScripts ---> DB : <<DDL/schema update>>\nAplica estados de modelos\na la base física
+
+@enduml

@@ -1,0 +1,33 @@
+@startuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam responseMessageBelowArrow true
+
+title Diagrama de Secuencia: Registro de agua captada
+
+actor "Sensor" as S
+participant "ESP32" as E
+participant "ServicioValidación" as V
+participant "BaseDatos" as DB
+
+S -> E : Enviar lectura de caudal
+activate E
+
+E -> V : Validar lectura de volumen()
+activate V
+V --> E : Resultado validación
+deactivate V
+
+alt Lectura válida
+    E -> DB : Registrar volumen captado()
+    activate DB
+    DB --> E : Confirmación de registro
+    deactivate DB
+else Lectura inválida
+    E -> E : Descartar datos
+end
+
+E --> S : Confirmar estado
+deactivate E
+
+@enduml

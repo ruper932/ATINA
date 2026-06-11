@@ -1,0 +1,26 @@
+@startuml
+' ------------------------------------------------------------------
+' Diagrama de Secuencia - Basado en CS-03.svg
+' Sin relaciones inventadas. Solo los casos de uso listados.
+' ------------------------------------------------------------------
+title Diagrama de Secuencia - Módulos del Sistema (CS-03)
+
+actor Usuario as User
+
+participant "Dashboard" as Dash
+participant "Modulo de reportes" as Rep
+participant "Exportar reportes" as Exp
+participant "Comunicación MCP" as MCP
+participant "Validar formato MCP" as Val
+participant "Recopilación de datos" as Rec
+participant "Transmitir datos ambientales" as Trans
+
+User -> Dash: Ingresar
+User -> Rep: Acceder
+User -> Exp: Ejecutar
+User -> MCP: Iniciar
+User -> Val: Ejecutar
+User -> Rec: Ejecutar
+User -> Trans: Ejecutar
+
+@enduml

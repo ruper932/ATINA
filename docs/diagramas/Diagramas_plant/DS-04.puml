@@ -1,0 +1,44 @@
+@startuml
+title Diagrama de Secuencia - CS-04 (Interpretación basada en orden de casos de uso)
+
+actor Usuario as User
+
+participant "Sistema" as Sys
+participant "Módulo ML2" as ML2
+participant "Comunicación MCP" as MCP
+participant "Módulo Simulador" as Sim
+
+User -> Sys: Iniciar proceso
+activate Sys
+
+Sys -> Sys: Recopilación de datos
+note right: Caso de uso 1
+
+Sys -> Sys: Calcular necesidades de riego
+note right: Caso de uso 2
+
+Sys -> ML2: Ejecutar ML2
+activate ML2
+ML2 --> Sys: resultado ML2
+deactivate ML2
+
+Sys -> Sys: Cálculo de predicción volumétrica
+
+Sys -> MCP: Comunicación MCP
+activate MCP
+MCP --> Sys: datos MCP
+deactivate MCP
+
+Sys -> Sys: Proyecciones de escenarios futuros
+
+Sys -> Sim: Módulo simulador de escenarios
+activate Sim
+Sim -> Sim: Modificación de variables manuales
+note right: Usuario modifica variables
+Sim --> Sys: escenarios simulados
+deactivate Sim
+
+Sys --> User: Resultado final
+deactivate Sys
+
+@enduml

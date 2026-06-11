@@ -1,0 +1,61 @@
+@startuml
+' ------------------------------------------------------------------
+' Diagrama de Secuencia: Autenticación de Usuario
+' Basado en el diagrama de casos de uso CS-01
+' ------------------------------------------------------------------
+title Diagrama de Secuencia - Autenticación de Usuario
+
+actor "Usuario" as User
+participant "Interfaz de\nAutenticación" as UI
+participant "Controlador de\nSeguridad" as Controller
+database "Directorio\nActivo / DB" as AuthDB
+participant "Gestor de\nSesiones" as SessionMgr
+database "Bitácora de\nAccesos" as LogDB
+
+== Flujo principal de autenticación ==
+
+User -> UI: Ingresar credenciales\n(usuario, contraseña)
+activate UI
+
+UI -> Controller: solicitarAutenticacion(credenciales)
+activate Controller
+
+ref over Controller, AuthDB
+  :Validar credenciales:
+  <<include>>
+end ref
+
+Controller -> AuthDB: validarUsuario(credenciales)
+activate AuthDB
+
+AuthDB --> Controller: resultadoValidación (válido)
+deactivate AuthDB
+
+alt Credenciales correctas
+    Controller -> SessionMgr: crearSesion(usuario)
+    activate SessionMgr
+    SessionMgr --> Controller: tokenSesion
+    deactivate SessionMgr
+
+    Controller -> LogDB: registrarAcceso(usuario, timestamp, "exito")
+    activate LogDB
+    LogDB --> Controller: accesoRegistrado
+    deactivate LogDB
+
+    Controller --> UI: autenticacionExitosa(tokenSesion)
+    UI --> User: Mostrar panel principal
+
+else Credenciales incorrectas
+    Controller -> LogDB: registrarAcceso(usuario, timestamp, "fallo")
+    activate LogDB
+    LogDB --> Controller: falloRegistrado
+    deactivate LogDB
+
+    Controller --> UI: errorAutenticacion("Credenciales inválidas")
+    UI --> User: Mostrar mensaje de error
+end
+
+deactivate Controller
+deactivate UI
+
+@enduml
