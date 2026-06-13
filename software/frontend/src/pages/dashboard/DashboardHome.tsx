@@ -20,6 +20,24 @@ import {
   Sprout,
 } from 'lucide-react'
 
+// Recharts
+import {
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ComposedChart,
+  Line,
+  Area,
+  LineChart,
+} from 'recharts'
+
 import { apiClient } from '@/lib/axios'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -71,12 +89,25 @@ type AlertaEntity = {
   fecha_generacion?: string
 }
 
+// Tipo real de la respuesta de /ml/predicciones
+type RawPrediccion = {
+  id: number
+  modelo_ml_id: number
+  fuente_agua_id: number | null
+  fecha_prediccion: string
+  fecha_objetivo: string
+  volumen_predicho_l: string | null  // viene como string, ej "000000766"
+  margen_error: string | null
+  confianza_modelo: string | null
+  resumen_entrada_json?: any
+  generado_en: string
+}
+
 type PrediccionEntity = {
   id: number
-  modelo_usado?: string | null
+  fecha_objetivo?: string
   volumen_predicho_l?: number | null
   creado_en?: string
-  fecha_objetivo?: string
 }
 
 type SincronizacionEntity = {
@@ -258,6 +289,36 @@ export default function DashboardHome() {
   const dashboardQuery = useQuery({
     queryKey: ['dashboard-home'],
     queryFn: async (): Promise<DashboardBundle> => {
+      // Función para obtener todas las predicciones con paginación y convertir string a número
+      const fetchAllPredicciones = async (): Promise<PrediccionEntity[]> => {
+        let skip = 0
+        const limit = 100
+        let allData: RawPrediccion[] = []
+        let hasMore = true
+
+        while (hasMore) {
+          const response = await apiClient.get('/ml/predicciones', {
+            params: { skip, limit }
+          })
+          const data: RawPrediccion[] = response.data
+          if (Array.isArray(data) && data.length > 0) {
+            allData = [...allData, ...data]
+            skip += limit
+            if (data.length < limit) hasMore = false
+          } else {
+            hasMore = false
+          }
+        }
+
+        // Transformar a PrediccionEntity: limpiar volumen_predicho_l (string -> number)
+        return allData.map(p => ({
+          id: p.id,
+          fecha_objetivo: p.fecha_objetivo,
+          creado_en: p.generado_en,
+          volumen_predicho_l: p.volumen_predicho_l ? parseFloat(p.volumen_predicho_l.replace(/^0+/, '')) : null
+        }))
+      }
+
       const [
         health,
         dbHealth,
@@ -282,7 +343,7 @@ export default function DashboardHome() {
         apiClient.get('/iot/sensores').then((r) => r.data),
         apiClient.get('/iot/actuadores').then((r) => r.data),
         apiClient.get('/alertas/').then((r) => r.data),
-        apiClient.get('/ml/predicciones').then((r) => r.data),
+        fetchAllPredicciones(),
         apiClient.get('/reportes/sincronizaciones').then((r) => r.data),
       ])
 
@@ -414,6 +475,125 @@ export default function DashboardHome() {
     data?.sincronizaciones ?? [],
     (row) => row.fecha_fin ?? row.fecha_inicio
   )
+
+  // ==================== ESTADÍSTICAS AVANZADAS ====================
+  const volumenesPredichos = useMemo(() => {
+    if (!data?.predicciones) return []
+    return data.predicciones
+      .map((p) => p.volumen_predicho_l)
+      .filter((v): v is number => v !== null && v !== undefined && !isNaN(v))
+  }, [data])
+
+  const estadisticas = useMemo(() => {
+    if (volumenesPredichos.length === 0) {
+      return {
+        p10: null,
+        p25: null,
+        p50: null,
+        p75: null,
+        p90: null,
+        media: null,
+        mediana: null,
+        desviacionEstandar: null,
+        cv: null,
+        min: null,
+        max: null,
+        rangoIntercuartil: null,
+      }
+    }
+    const sorted = [...volumenesPredichos].sort((a, b) => a - b)
+    const getPercentile = (p: number) => {
+      const index = (p / 100) * (sorted.length - 1)
+      const lower = Math.floor(index)
+      const upper = Math.ceil(index)
+      if (lower === upper) return sorted[lower]
+      return sorted[lower] + (sorted[upper] - sorted[lower]) * (index - lower)
+    }
+    const media = sorted.reduce((sum, v) => sum + v, 0) / sorted.length
+    const mediana = getPercentile(50)
+    const varianza = sorted.reduce((sum, v) => sum + (v - media) ** 2, 0) / sorted.length
+    const desviacionEstandar = Math.sqrt(varianza)
+    const cv = (desviacionEstandar / media) * 100
+    const min = sorted[0]
+    const max = sorted[sorted.length - 1]
+    const p25 = getPercentile(25)
+    const p75 = getPercentile(75)
+    const rangoIntercuartil = p75 - p25
+    return {
+      p10: getPercentile(10),
+      p25,
+      p50: mediana,
+      p75,
+      p90: getPercentile(90),
+      media,
+      mediana,
+      desviacionEstandar,
+      cv,
+      min,
+      max,
+      rangoIntercuartil,
+    }
+  }, [volumenesPredichos])
+
+  const histogramData = useMemo(() => {
+    if (volumenesPredichos.length === 0) return []
+    const min = Math.min(...volumenesPredichos)
+    const max = Math.max(...volumenesPredichos)
+    const bins = 10
+    const binWidth = (max - min) / bins
+    const binsArray = Array.from({ length: bins }, (_, i) => ({
+      rango: `${(min + i * binWidth).toFixed(0)} - ${(min + (i + 1) * binWidth).toFixed(0)}`,
+      count: 0,
+    }))
+    volumenesPredichos.forEach((val) => {
+      const index = Math.min(Math.floor((val - min) / binWidth), bins - 1)
+      binsArray[index].count++
+    })
+    return binsArray
+  }, [volumenesPredichos])
+
+  const alertasPorTipo = useMemo(() => {
+    if (!data?.alertas) return []
+    const counts = new Map<string, number>()
+    data.alertas.forEach((alerta) => {
+      const tipo = alerta.tipo_alerta || 'Desconocido'
+      counts.set(tipo, (counts.get(tipo) || 0) + 1)
+    })
+    return Array.from(counts.entries()).map(([name, value]) => ({ name, value }))
+  }, [data])
+
+  const boxplotData = useMemo(() => {
+    if (!estadisticas.min || !estadisticas.p25 || !estadisticas.p50 || !estadisticas.p75 || !estadisticas.max)
+      return []
+    return [
+      {
+        name: 'Volumen (L)',
+        min: estadisticas.min,
+        p25: estadisticas.p25,
+        median: estadisticas.p50,
+        p75: estadisticas.p75,
+        max: estadisticas.max,
+      },
+    ]
+  }, [estadisticas])
+
+  const alertasPorMes = useMemo(() => {
+    if (!data?.alertas) return []
+    const map = new Map<string, number>()
+    data.alertas.forEach((alerta) => {
+      const fechaStr = alerta.creado_en || alerta.fecha_generacion
+      if (!fechaStr) return
+      const fecha = new Date(fechaStr)
+      if (isNaN(fecha.getTime())) return
+      const mesKey = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`
+      map.set(mesKey, (map.get(mesKey) || 0) + 1)
+    })
+    return Array.from(map.entries())
+      .map(([mes, cantidad]) => ({ mes, cantidad }))
+      .sort((a, b) => a.mes.localeCompare(b.mes))
+  }, [data])
+
+  const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec489a', '#06b6d4']
 
   if (dashboardQuery.isLoading) {
     return (
@@ -689,6 +869,251 @@ export default function DashboardHome() {
           </div>
         </SurfaceCard>
       </section>
+
+      {/* ==================== SECCIÓN ESTADÍSTICA AVANZADA ==================== */}
+      <section className="grid gap-4 lg:grid-cols-2">
+        {/* Tarjeta de estadísticas descriptivas */}
+        <SurfaceCard
+          title="Estadísticas de predicciones (volumen en litros)"
+          description="Análisis cuantitativo de los modelos de ML"
+        >
+          {volumenesPredichos.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No hay datos de predicciones para analizar.</p>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <div className="rounded-xl bg-muted/30 p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Media</p>
+                  <p className="text-lg font-bold text-foreground">{Number(estadisticas.media)?.toFixed(1)} L</p>
+                </div>
+                <div className="rounded-xl bg-muted/30 p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Mediana (P50)</p>
+                  <p className="text-lg font-bold text-foreground">{Number(estadisticas.mediana)?.toFixed(1)} L</p>
+                </div>
+                <div className="rounded-xl bg-muted/30 p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Desv. Estándar</p>
+                  <p className="text-lg font-bold text-foreground">{Number(estadisticas.desviacionEstandar)?.toFixed(1)} L</p>
+                </div>
+                <div className="rounded-xl bg-muted/30 p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Mínimo</p>
+                  <p className="text-md font-semibold text-emerald-600 dark:text-emerald-400">
+                    {Number(estadisticas.min)?.toFixed(1)} L
+                  </p>
+                </div>
+                <div className="rounded-xl bg-muted/30 p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Máximo</p>
+                  <p className="text-md font-semibold text-rose-600 dark:text-rose-400">
+                    {Number(estadisticas.max)?.toFixed(1)} L
+                  </p>
+                </div>
+                <div className="rounded-xl bg-muted/30 p-3 text-center">
+                  <p className="text-xs text-muted-foreground">CV (%)</p>
+                  <p className="text-md font-semibold text-sky-600 dark:text-sky-400">
+                    {Number(estadisticas.cv)?.toFixed(1)}%
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-lg bg-muted/20 p-2 text-center">
+                  <p className="text-[11px] text-muted-foreground">P10</p>
+                  <p className="text-sm font-medium">{Number(estadisticas.p10)?.toFixed(1)} L</p>
+                </div>
+                <div className="rounded-lg bg-muted/20 p-2 text-center">
+                  <p className="text-[11px] text-muted-foreground">P25</p>
+                  <p className="text-sm font-medium">{Number(estadisticas.p25)?.toFixed(1)} L</p>
+                </div>
+                <div className="rounded-lg bg-muted/20 p-2 text-center">
+                  <p className="text-[11px] text-muted-foreground">P75</p>
+                  <p className="text-sm font-medium">{Number(estadisticas.p75)?.toFixed(1)} L</p>
+                </div>
+                <div className="rounded-lg bg-muted/20 p-2 text-center">
+                  <p className="text-[11px] text-muted-foreground">P90</p>
+                  <p className="text-sm font-medium">{Number(estadisticas.p90)?.toFixed(1)} L</p>
+                </div>
+                <div className="col-span-2 rounded-lg bg-muted/20 p-2 text-center">
+                  <p className="text-[11px] text-muted-foreground">Rango Intercuartílico (P75-P25)</p>
+                  <p className="text-sm font-medium">{Number(estadisticas.rangoIntercuartil)?.toFixed(1)} L</p>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border/50 bg-background p-3">
+                <p className="text-sm font-medium text-foreground">Interpretación</p>
+                <p className="text-xs text-muted-foreground">
+                  El 50% de las predicciones están entre {Number(estadisticas.p25)?.toFixed(0)} L y{' '}
+                  {Number(estadisticas.p75)?.toFixed(0)} L. Coeficiente de variación del {Number(estadisticas.cv)?.toFixed(1)}%
+                  {estadisticas.cv && Number(estadisticas.cv) < 15
+                    ? ' (baja dispersión)'
+                    : estadisticas.cv && Number(estadisticas.cv) < 30
+                    ? ' (dispersión moderada)'
+                    : ' (alta dispersión)'}
+                  .
+                </p>
+              </div>
+            </div>
+          )}
+        </SurfaceCard>
+
+        {/* Gráfico de torta: alertas por tipo */}
+        <SurfaceCard
+          title="Distribución de alertas"
+          description="Clasificación por tipo de alerta"
+        >
+          {alertasPorTipo.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No hay alertas registradas.</p>
+          ) : (
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={alertasPorTipo}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
+                  >
+                    {alertasPorTipo.map((_entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#1e1e2f', border: 'none', borderRadius: '12px' }}
+                    formatter={(value) => [`${value} alertas`, 'Cantidad']}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </SurfaceCard>
+      </section>
+
+      {/* Histograma */}
+      {volumenesPredichos.length > 0 && (
+        <section className="grid gap-4">
+          <SurfaceCard
+            title="Histograma de frecuencias"
+            description="Distribución de los volúmenes predichos por rangos"
+          >
+            <div className="h-80 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={histogramData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+                  <XAxis dataKey="rango" tick={{ fill: '#ccc' }} angle={-25} textAnchor="end" height={60} />
+                  <YAxis tick={{ fill: '#ccc' }} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#1e1e2f', border: 'none', borderRadius: '8px' }}
+                    formatter={(value) => [`${value} predicciones`, 'Frecuencia']}
+                  />
+                  <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </SurfaceCard>
+        </section>
+      )}
+
+            {/* Boxplot - versión horizontal más fiable */}
+      {boxplotData.length > 0 && (
+        <section className="grid gap-4">
+          <SurfaceCard
+            title="Diagrama de caja (Boxplot)"
+            description="Resumen de cinco números: mínimo, P25, mediana, P75, máximo"
+          >
+            <div className="h-80 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart
+                  data={boxplotData}
+                  layout="horizontal"
+                  margin={{ top: 20, right: 50, left: 50, bottom: 20 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+                  <XAxis type="category" dataKey="name" tick={{ fill: '#ccc' }} />
+                  <YAxis type="number" domain={['dataMin - 10', 'dataMax + 10']} tick={{ fill: '#ccc' }} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#1e1e2f', border: 'none', borderRadius: '8px' }}
+                    formatter={(value, name) => {
+                      const numValue = typeof value === 'number' ? value : Number(value);
+                      const labelMap: Record<string, string> = {
+                        min: 'Mínimo',
+                        p25: 'Percentil 25',
+                        median: 'Mediana (P50)',
+                        p75: 'Percentil 75',
+                        max: 'Máximo',
+                      };
+                      const label = name && typeof name === 'string' ? labelMap[name] : name;
+                      return [!isNaN(numValue) ? `${numValue.toFixed(1)} L` : String(value), label];
+                    }}
+                  />
+                  {/* Caja: desde P25 hasta P75, usamos un rectángulo con Bar */}
+                  <Bar dataKey="p25" fill="none" hide />
+                  <Bar dataKey="p75" fill="none" hide />
+                  <Line
+                    dataKey="median"
+                    stroke="#f59e0b"
+                    strokeWidth={3}
+                    dot={{ r: 6, fill: '#f59e0b' }}
+                  />
+                  <Line
+                    dataKey="min"
+                    stroke="#ef4444"
+                    strokeWidth={2}
+                    dot={{ r: 4, fill: '#ef4444' }}
+                  />
+                  <Line
+                    dataKey="max"
+                    stroke="#ef4444"
+                    strokeWidth={2}
+                    dot={{ r: 4, fill: '#ef4444' }}
+                  />
+                  {/* Líneas verticales para los bigotes */}
+                  <Line
+                    dataKey="p25"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                  <Line
+                    dataKey="p75"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+            <p className="mt-2 text-center text-xs text-muted-foreground">
+              Línea naranja: mediana | Línea azul: rango intercuartílico (P25 - P75) | Puntos rojos: mínimo y máximo
+            </p>
+          </SurfaceCard>
+        </section>
+      )}
+      
+      {/* Evolución mensual de alertas */}
+      {alertasPorMes.length > 0 && (
+        <section className="grid gap-4">
+          <SurfaceCard
+            title="Evolución temporal de alertas"
+            description="Cantidad de alertas generadas por mes"
+          >
+            <div className="h-80 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={alertasPorMes}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+                  <XAxis dataKey="mes" tick={{ fill: '#ccc' }} />
+                  <YAxis tick={{ fill: '#ccc' }} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#1e1e2f', border: 'none', borderRadius: '8px' }}
+                    formatter={(value) => [`${value} alertas`, 'Cantidad']}
+                  />
+                  <Line type="monotone" dataKey="cantidad" stroke="#f59e0b" strokeWidth={2} dot={{ r: 4 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </SurfaceCard>
+        </section>
+      )}
 
       <section className="flex justify-end">
         <Button
